@@ -26,13 +26,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (typeof window === "undefined") return;
 
-        // Ignore harmless AbortErrors from the browser's media API
-        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-            if (event.reason?.name === "AbortError") {
-                event.preventDefault(); // Prevent Next.js error overlay
-            }
-        };
-        window.addEventListener("unhandledrejection", handleUnhandledRejection);
+        // Next.js dev overlay catches unhandled rejections aggressively.
+        // To silence the harmless AbortError from media.play(), we patch the native method.
+        if (!(HTMLMediaElement.prototype as any)._isPatchedForAbort) {
+            const originalPlay = HTMLMediaElement.prototype.play;
+            HTMLMediaElement.prototype.play = function () {
+                const promise = originalPlay.apply(this, arguments as any);
+                if (promise !== undefined) {
+                    return promise.catch((error) => {
+                        if (error.name !== "AbortError") {
+                            throw error;
+                        }
+                    });
+                }
+                return promise;
+            };
+            (HTMLMediaElement.prototype as any)._isPatchedForAbort = true;
+        }
 
         if (playerRef.current) return;
 
@@ -81,7 +91,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setPlayer(newPlayer);
 
         return () => {
-            window.removeEventListener("unhandledrejection", handleUnhandledRejection);
             newPlayer.dispose();
             playerRef.current = null;
         };

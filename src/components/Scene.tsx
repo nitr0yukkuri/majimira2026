@@ -9,40 +9,10 @@ import { usePlayer } from "@/contexts/PlayerContext";
 function CityScene() {
     const { isPlaying, currentWord, currentPhrase } = usePlayer();
     const boxGroupRef = useRef<THREE.Group>(null);
-
-    // Generate window texture
-    const [windowTexture] = useState(() => {
-        if (typeof document === "undefined") return null;
-        const canvas = document.createElement("canvas");
-        canvas.width = 128;
-        canvas.height = 128;
-        const ctx = canvas.getContext("2d")!;
-        
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(0, 0, 128, 128);
-
-        // Vibrant neon colors from the screenshot
-        const colors = ['#ff00ff', '#00ffff', '#ffff00', '#ff8800'];
-
-        for (let y = 8; y < 128; y += 16) {
-            for (let x = 8; x < 128; x += 16) {
-                // Scattered neon windows
-                if (Math.random() > 0.7) {
-                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-                    ctx.fillRect(x, y, 10, 10);
-                }
-            }
-        }
-        
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.RepeatWrapping;
-        tex.anisotropy = 4;
-        return tex;
-    });
+    const windowsRef = useRef<THREE.InstancedMesh>(null);
 
     // Generate some grid boxes
-    const [buildings] = useState(() => {
+    const buildings = useMemo(() => {
         const list = [];
         for (let x = -5; x <= 5; x++) {
             for (let z = -5; z <= 5; z++) {
@@ -52,42 +22,121 @@ function CityScene() {
             }
         }
         return list;
-    });
+    }, []);
 
-    // Determine which buildings should light up for the current word
-    const activeIndices = React.useMemo(() => {
-        if (!currentWord) return [];
-        const seed = currentWord.startTime;
-        // Pick 4 pseudo-random buildings based on the word's start time
-        return [
-            seed % buildings.length,
-            (seed * 3) % buildings.length,
-            (seed * 7) % buildings.length,
-            (seed * 11) % buildings.length,
-        ];
-    }, [currentWord, buildings.length]);
+    // Generate Window Instances Data
+    const windowData = useMemo(() => {
+        const matrices: THREE.Matrix4[] = [];
+        const buildingIndices: number[] = [];
+        const windowSize = 0.12;
+        const cols = 3;
+        const spacing = 1 / cols;
 
-    // Animate over time based on the music playing
+        buildings.forEach((b, bIdx) => {
+            const addWindow = (px: number, py: number, pz: number, ry: number) => {
+                const matrix = new THREE.Matrix4();
+                const position = new THREE.Vector3(px, py, pz);
+                const rotation = new THREE.Euler(0, ry, 0);
+                const scale = new THREE.Vector3(windowSize, windowSize, windowSize);
+                matrix.compose(position, new THREE.Quaternion().setFromEuler(rotation), scale);
+                matrices.push(matrix);
+                buildingIndices.push(bIdx);
+            };
+
+            const floors = Math.floor(b.h / 0.4);
+            for (let f = 0; f < floors; f++) {
+                const py = f * 0.4 + 0.2;
+                for (let c = 0; c < cols; c++) {
+                    const lx = -0.5 + (c + 0.5) * spacing;
+                    addWindow(b.x + lx, py, b.z + 0.501, 0);
+                    addWindow(b.x + lx, py, b.z - 0.501, Math.PI);
+                    addWindow(b.x + 0.501, py, b.z + lx, Math.PI / 2);
+                    addWindow(b.x - 0.501, py, b.z + lx, -Math.PI / 2);
+                }
+            }
+        });
+        return { matrices, buildingIndices };
+    }, [buildings]);
+
+    // Initialize all window colors to black (transparent essentially)
+    useEffect(() => {
+        if (!windowsRef.current) return;
+        const black = new THREE.Color("#000000");
+        for (let i = 0; i < windowData.matrices.length; i++) {
+            windowsRef.current.setMatrixAt(i, windowData.matrices[i]);
+            windowsRef.current.setColorAt(i, black);
+        }
+        windowsRef.current.instanceMatrix.needsUpdate = true;
+        if (windowsRef.current.instanceColor) {
+            windowsRef.current.instanceColor.needsUpdate = true;
+        }
+    }, [windowData]);
+
+    const litWindows = useRef<Set<number>>(new Set());
+    const lastWordId = useRef<number | string | null>(null);
+    const neonColors = useMemo(() => ['#ff00ff', '#00ffff', '#ffff00', '#ff8800'].map(c => new THREE.Color(c)), []);
+
+    // Camera targets
+    const [targetBuildingIndex, setTargetBuildingIndex] = useState(0);
+    const lastPhraseId = useRef<number | string | null>(null);
+    const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
+
     useFrame((state, delta) => {
+        // 1. Group bouncing
         if (boxGroupRef.current) {
             const time = performance.now() / 1000;
             boxGroupRef.current.position.y = Math.sin(time * (isPlaying ? 2 : 0.5)) * 0.2;
+        }
 
-            boxGroupRef.current.children.forEach((child, index) => {
-                if (child instanceof THREE.Mesh) {
-                    const material = child.material as THREE.MeshStandardMaterial;
-                    const isActive = currentWord && activeIndices.includes(index);
-
-                    // React to the music / word presence
-                    if (isActive) {
-                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 3.5, 0.3);
-                        material.color.lerp(new THREE.Color("#0a192f"), 0.2);
-                    } else {
-                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 0.1, 0.05);
-                        material.color.lerp(new THREE.Color("#01040a"), 0.05);
-                    }
+        // 2. Sequential Window Lighting
+        if (currentWord && currentWord.id !== lastWordId.current && windowsRef.current) {
+            lastWordId.current = currentWord.id;
+            
+            const unlit = [];
+            for (let i = 0; i < windowData.buildingIndices.length; i++) {
+                if (windowData.buildingIndices[i] === targetBuildingIndex && !litWindows.current.has(i)) {
+                    unlit.push(i);
                 }
-            });
+            }
+            
+            // Light up 3-6 windows per word
+            const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
+            for (let c = 0; c < count; c++) {
+                const rnd = Math.floor(Math.random() * unlit.length);
+                const idx = unlit[rnd];
+                unlit.splice(rnd, 1);
+                
+                litWindows.current.add(idx);
+                const color = neonColors[Math.floor(Math.random() * neonColors.length)];
+                windowsRef.current.setColorAt(idx, color);
+            }
+            if (count > 0 && windowsRef.current.instanceColor) {
+                windowsRef.current.instanceColor.needsUpdate = true;
+            }
+        }
+
+        // 3. Phrase transition logic (change target building)
+        if (currentPhrase && currentPhrase.id !== lastPhraseId.current) {
+            lastPhraseId.current = currentPhrase.id;
+            setTargetBuildingIndex(Math.floor(Math.random() * buildings.length));
+        }
+
+        // 4. Cinematic Camera Work
+        const targetB = buildings[targetBuildingIndex];
+        if (targetB) {
+            const targetPos = new THREE.Vector3(targetB.x, targetB.h / 2, targetB.z);
+            cameraTarget.current.lerp(targetPos, 1.5 * delta);
+            state.camera.lookAt(cameraTarget.current);
+            
+            // Fly around the target building
+            const time = performance.now() / 1000;
+            const radius = 6;
+            const cx = targetB.x + Math.sin(time * 0.3) * radius;
+            const cz = targetB.z + Math.cos(time * 0.3) * radius;
+            const cy = targetB.h / 2 + 1.5 + Math.sin(time * 0.5) * 1;
+
+            const desiredCameraPos = new THREE.Vector3(cx, cy, cz);
+            state.camera.position.lerp(desiredCameraPos, 1.0 * delta);
         }
     });
 
@@ -97,28 +146,21 @@ function CityScene() {
             <directionalLight position={[10, 10, 5]} intensity={1} />
 
             <group ref={boxGroupRef}>
-                {buildings.map((b) => {
-                    const tex = windowTexture?.clone();
-                    if (tex) {
-                        tex.repeat.set(1, Math.ceil(b.h));
-                        tex.needsUpdate = true;
-                    }
-
-                    return (
-                        <mesh key={b.id} position={[b.x, b.h / 2, b.z]}>
-                            <boxGeometry args={[1, b.h, 1]} />
-                            <meshStandardMaterial
-                                color="#020813"
-                                emissive="#ffffff"
-                                emissiveIntensity={0.3}
-                                emissiveMap={tex}
-                                roughness={0.8}
-                                metalness={0.2}
-                            />
-                            <Edges color="#00ffcc" threshold={15} />
-                        </mesh>
-                    );
-                })}
+                {buildings.map((b) => (
+                    <mesh key={b.id} position={[b.x, b.h / 2, b.z]}>
+                        <boxGeometry args={[1, b.h, 1]} />
+                        <meshStandardMaterial color="#020813" roughness={0.8} metalness={0.2} />
+                        <Edges color="#00ffcc" threshold={15} />
+                    </mesh>
+                ))}
+                
+                {/* Instanced Mesh for Windows */}
+                {windowData.matrices.length > 0 && (
+                    <instancedMesh ref={windowsRef} args={[undefined, undefined, windowData.matrices.length]}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial toneMapped={false} />
+                    </instancedMesh>
+                )}
             </group>
 
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
@@ -133,7 +175,6 @@ export default function Scene() {
     return (
         <Canvas>
             <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={60} />
-            <OrbitControls autoRotate={false} maxPolarAngle={Math.PI / 2 - 0.1} />
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
             <CityScene />
         </Canvas>
