@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { usePlayer, PlayerProvider } from "@/contexts/PlayerContext";
 import dynamic from "next/dynamic";
@@ -9,7 +9,7 @@ import React from 'react';
 const Scene = dynamic(() => import("@/components/Scene").then(mod => mod.default), { ssr: false });
 
 function UIOverlay() {
-  const { player, isPlaying, play, pause, currentPhrase } = usePlayer();
+  const { player, isPlaying, isReady, play, pause, currentPhrase } = usePlayer();
 
   return (
     <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-8">
@@ -19,7 +19,7 @@ function UIOverlay() {
           {isPlaying ? (
             <button onClick={pause} className="px-5 py-2 bg-red-500 hover:bg-red-400 rounded-full font-bold transition">PAUSE</button>
           ) : (
-            <button onClick={play} className="px-5 py-2 border-2 border-cyan-500 hover:bg-cyan-500 hover:text-black rounded-full font-bold transition text-cyan-500">PLAY</button>
+            <button disabled={!isReady} onClick={play} className={`px-5 py-2 border-2 border-cyan-500 rounded-full font-bold transition ${isReady ? 'hover:bg-cyan-500 hover:text-black text-cyan-500 cursor-pointer' : 'opacity-50 cursor-not-allowed text-cyan-500'}`}>PLAY</button>
           )}
         </div>
       </header>

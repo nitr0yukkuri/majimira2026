@@ -6,6 +6,7 @@ import { Player, IPlayerApp, IPhrase, IWord } from "textalive-app-api";
 interface PlayerContextType {
     player: Player | null;
     isPlaying: boolean;
+    isReady: boolean;
     currentPhrase: IPhrase | null;
     currentWord: IWord | null;
     play: () => void;
@@ -17,6 +18,7 @@ const PlayerContext = createContext<PlayerContextType | null>(null);
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const [player, setPlayer] = useState<Player | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isReady, setIsReady] = useState(false);
     const [currentPhrase, setCurrentPhrase] = useState<IPhrase | null>(null);
     const [currentWord, setCurrentWord] = useState<IWord | null>(null);
     const playerRef = useRef<Player | null>(null);
@@ -24,12 +26,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (typeof window === "undefined" || playerRef.current) return;
 
+        const mediaEl = document.querySelector("#media");
+        
         const newPlayer = new Player({
             app: {
                 appAuthor: "NeoCity Awaken",
                 appName: "Prototype",
                 token: "test", // 実際の運用時は正規のデベロッパートークンに置き換えてください
             },
+            mediaElement: mediaEl as HTMLElement,
         });
 
         newPlayer.addListener({
@@ -49,6 +54,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             },
             onVideoReady: () => {
                 console.log("Video is ready!");
+            },
+            onTimerReady: () => {
+                console.log("Timer is ready!");
+                setIsReady(true);
             },
             onPlay: () => setIsPlaying(true),
             onPause: () => setIsPlaying(false),
@@ -79,7 +88,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const pause = () => player?.requestPause();
 
     return (
-        <PlayerContext.Provider value={{ player, isPlaying, currentPhrase, currentWord, play, pause }}>
+        <PlayerContext.Provider value={{ player, isPlaying, isReady, currentPhrase, currentWord, play, pause }}>
             {children}
             <div id="media" className="hidden"></div>
         </PlayerContext.Provider>
