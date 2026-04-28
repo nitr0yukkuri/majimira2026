@@ -40,16 +40,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         newPlayer.addListener({
             onAppReady: (app: IPlayerApp) => {
                 if (!app.managed) {
-                    // Default song: Magical Mirai (example) or generic piapro URL
-                    newPlayer.createFromSongUrl("https://piapro.jp/t/E2i3/20250106202418", {
-                        video: {
-                            beatId: 3953764,
-                            chordId: 1955797,
-                            repetitiveSegmentId: 1955797,
-                            lyricId: 52065,
-                            lyricDiffId: 5123
-                        }
-                    });
+                    // Use a known valid URL for Magical Mirai (e.g., 2024 Anthem by yama)
+                    newPlayer.createFromSongUrl("https://piapro.jp/t/F0xJ/20240128074203");
                 }
             },
             onVideoReady: () => {
