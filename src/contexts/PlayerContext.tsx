@@ -25,11 +25,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         if (typeof window === "undefined" || playerRef.current) return;
 
         const newPlayer = new Player({
-      app: {
-        appAuthor: "NeoCity Awaken",
-        appName: "Prototype",
-        token: "test", // 実際の運用時は正規のデベロッパートークンに置き換えてください
-      },
+            app: {
+                appAuthor: "NeoCity Awaken",
+                appName: "Prototype",
+                token: "test", // 実際の運用時は正規のデベロッパートークンに置き換えてください
+            },
         });
 
         newPlayer.addListener({
