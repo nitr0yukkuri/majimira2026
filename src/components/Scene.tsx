@@ -24,9 +24,10 @@ function CityScene() {
     });
 
     // Animate over time based on the music playing
-    useFrame((state) => {
+    useFrame((state, delta) => {
         if (boxGroupRef.current) {
-            boxGroupRef.current.position.y = Math.sin(state.clock.elapsedTime * (isPlaying ? 2 : 0.5)) * 0.2;
+            const time = performance.now() / 1000;
+            boxGroupRef.current.position.y = Math.sin(time * (isPlaying ? 2 : 0.5)) * 0.2;
 
             boxGroupRef.current.children.forEach((child) => {
                 if (child instanceof THREE.Mesh) {

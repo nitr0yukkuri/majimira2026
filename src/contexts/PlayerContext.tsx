@@ -40,8 +40,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         newPlayer.addListener({
             onAppReady: (app: IPlayerApp) => {
                 if (!app.managed) {
-                    // Use a known valid URL for Magical Mirai (e.g., 2024 Anthem by yama)
-                    newPlayer.createFromSongUrl("https://piapro.jp/t/F0xJ/20240128074203");
+                    // Use a known valid URL from TextAlive official tutorials (Loading Memories / secon)
+                    newPlayer.createFromSongUrl("https://piapro.jp/t/RoPB/20220122172830");
                 }
             },
             onVideoReady: () => {
