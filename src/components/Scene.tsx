@@ -10,6 +10,34 @@ function CityScene() {
     const { isPlaying, currentWord, currentPhrase } = usePlayer();
     const boxGroupRef = useRef<THREE.Group>(null);
 
+    // Generate window texture
+    const [windowTexture] = useState(() => {
+        if (typeof document === "undefined") return null;
+        const canvas = document.createElement("canvas");
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext("2d")!;
+        
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, 128, 128);
+
+        ctx.fillStyle = "#ffffff";
+        for (let y = 8; y < 128; y += 16) {
+            for (let x = 8; x < 128; x += 16) {
+                // 70% chance of a window being lit
+                if (Math.random() > 0.3) {
+                    ctx.fillRect(x, y, 10, 10);
+                }
+            }
+        }
+        
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.anisotropy = 4;
+        return tex;
+    });
+
     // Generate some grid boxes
     const [buildings] = useState(() => {
         const list = [];
@@ -34,11 +62,11 @@ function CityScene() {
                     const material = child.material as THREE.MeshStandardMaterial;
                     // React to the music / word presence
                     if (currentWord) {
-                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 2, 0.1);
-                        material.wireframe = false;
+                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 2.5, 0.2);
+                        material.color.lerp(new THREE.Color("#0a192f"), 0.1);
                     } else {
-                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 0, 0.05);
-                        material.wireframe = !isPlaying; // wireframe when stopped!
+                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 0.3, 0.05);
+                        material.color.lerp(new THREE.Color("#020813"), 0.05);
                     }
                 }
             });
@@ -51,17 +79,27 @@ function CityScene() {
             <directionalLight position={[10, 10, 5]} intensity={1} />
 
             <group ref={boxGroupRef}>
-                {buildings.map((b) => (
-                    <mesh key={b.id} position={[b.x, b.h / 2, b.z]}>
-                        <boxGeometry args={[1, b.h, 1]} />
-                        <meshStandardMaterial
-                            color="#0a192f"
-                            emissive="#00ffcc"
-                            emissiveIntensity={0}
-                            wireframe={true}
-                        />
-                    </mesh>
-                ))}
+                {buildings.map((b) => {
+                    const tex = windowTexture?.clone();
+                    if (tex) {
+                        tex.repeat.set(2, Math.ceil(b.h * 2));
+                        tex.needsUpdate = true;
+                    }
+
+                    return (
+                        <mesh key={b.id} position={[b.x, b.h / 2, b.z]}>
+                            <boxGeometry args={[1, b.h, 1]} />
+                            <meshStandardMaterial
+                                color="#020813"
+                                emissive="#00ffcc"
+                                emissiveIntensity={0.3}
+                                emissiveMap={tex}
+                                roughness={0.8}
+                                metalness={0.2}
+                            />
+                        </mesh>
+                    );
+                })}
             </group>
 
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
