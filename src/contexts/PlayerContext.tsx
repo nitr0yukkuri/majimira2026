@@ -24,7 +24,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const playerRef = useRef<Player | null>(null);
 
     useEffect(() => {
-        if (typeof window === "undefined" || playerRef.current) return;
+        if (typeof window === "undefined") return;
+
+        // Ignore harmless AbortErrors from the browser's media API
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            if (event.reason?.name === "AbortError") {
+                event.preventDefault(); // Prevent Next.js error overlay
+            }
+        };
+        window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
+        if (playerRef.current) return;
 
         const mediaEl = document.querySelector("#media");
         
@@ -71,6 +81,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setPlayer(newPlayer);
 
         return () => {
+            window.removeEventListener("unhandledrejection", handleUnhandledRejection);
             newPlayer.dispose();
             playerRef.current = null;
         };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
@@ -22,12 +22,20 @@ function CityScene() {
         ctx.fillRect(0, 0, 128, 128);
 
         ctx.fillStyle = "#ffffff";
-        for (let y = 8; y < 128; y += 16) {
-            for (let x = 8; x < 128; x += 16) {
-                // 70% chance of a window being lit
-                if (Math.random() > 0.3) {
-                    ctx.fillRect(x, y, 10, 10);
+        // 現実的なオフィスビルのように、横長の大きな窓（帯）をまばらに配置する
+        for (let y = 0; y < 128; y += 32) {
+            // フロアごとに点灯パターンを変える
+            if (Math.random() > 0.4) {
+                // 横幅の広い窓
+                for (let x = 0; x < 128; x += 64) {
+                    // 窓の点灯率を下げる (40%の確率で点灯)
+                    if (Math.random() > 0.6) {
+                        ctx.fillRect(x + 8, y + 8, 48, 16);
+                    }
                 }
+            } else if (Math.random() > 0.8) {
+                // たまにフロア全体が点灯している横帯
+                ctx.fillRect(0, y + 8, 128, 16);
             }
         }
         
@@ -51,22 +59,37 @@ function CityScene() {
         return list;
     });
 
+    // Determine which buildings should light up for the current word
+    const activeIndices = React.useMemo(() => {
+        if (!currentWord) return [];
+        const seed = currentWord.startTime;
+        // Pick 4 pseudo-random buildings based on the word's start time
+        return [
+            seed % buildings.length,
+            (seed * 3) % buildings.length,
+            (seed * 7) % buildings.length,
+            (seed * 11) % buildings.length,
+        ];
+    }, [currentWord, buildings.length]);
+
     // Animate over time based on the music playing
     useFrame((state, delta) => {
         if (boxGroupRef.current) {
             const time = performance.now() / 1000;
             boxGroupRef.current.position.y = Math.sin(time * (isPlaying ? 2 : 0.5)) * 0.2;
 
-            boxGroupRef.current.children.forEach((child) => {
+            boxGroupRef.current.children.forEach((child, index) => {
                 if (child instanceof THREE.Mesh) {
                     const material = child.material as THREE.MeshStandardMaterial;
+                    const isActive = currentWord && activeIndices.includes(index);
+
                     // React to the music / word presence
-                    if (currentWord) {
-                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 2.5, 0.2);
-                        material.color.lerp(new THREE.Color("#0a192f"), 0.1);
+                    if (isActive) {
+                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 3.5, 0.3);
+                        material.color.lerp(new THREE.Color("#0a192f"), 0.2);
                     } else {
-                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 0.3, 0.05);
-                        material.color.lerp(new THREE.Color("#020813"), 0.05);
+                        material.emissiveIntensity = THREE.MathUtils.lerp(material.emissiveIntensity, 0.1, 0.05);
+                        material.color.lerp(new THREE.Color("#01040a"), 0.05);
                     }
                 }
             });
@@ -82,7 +105,7 @@ function CityScene() {
                 {buildings.map((b) => {
                     const tex = windowTexture?.clone();
                     if (tex) {
-                        tex.repeat.set(2, Math.ceil(b.h * 2));
+                        tex.repeat.set(1, Math.ceil(b.h));
                         tex.needsUpdate = true;
                     }
 
