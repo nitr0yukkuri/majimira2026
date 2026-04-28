@@ -8,8 +8,59 @@ import React from 'react';
 // Disable SSR for 3D component and APIs using browser globals
 const Scene = dynamic(() => import("@/components/Scene").then(mod => mod.default), { ssr: false });
 
+const neonColors = ['text-[#ff00ff]', 'text-[#00ffff]', 'text-[#ffff00]', 'text-[#ff8800]'];
+const glowColors = ['drop-shadow-[0_0_15px_#ff00ff]', 'drop-shadow-[0_0_15px_#00ffff]', 'drop-shadow-[0_0_15px_#ffff00]', 'drop-shadow-[0_0_15px_#ff8800]'];
+
+const hash = (str: string) => {
+    let h = 0;
+    for(let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+    return Math.abs(h);
+};
+
 function UIOverlay() {
-  const { player, isPlaying, isReady, play, pause, currentPhrase } = usePlayer();
+  const { player, isPlaying, isReady, play, pause, currentPhrase, currentWord } = usePlayer();
+
+  const renderLyrics = () => {
+    if (!currentPhrase) {
+      return <p className="text-gray-500 text-lg uppercase tracking-widest animate-pulse">Waiting for Signal...</p>;
+    }
+
+    const words = currentPhrase.children || [];
+    const activeIndex = words.findIndex((w: any) => w.id === currentWord?.id);
+
+    return (
+      <div className="relative w-full max-w-5xl mx-auto flex flex-wrap justify-center items-center content-center gap-2 px-8">
+        {words.map((word: any, index: number) => {
+          const isPast = activeIndex !== -1 && index <= activeIndex;
+          const isActive = activeIndex === index;
+
+          if (!isPast && !isActive) {
+            return <span key={word.id || index} className="opacity-0">{word.text}</span>;
+          }
+
+          const seed = hash(word.id || word.text || index.toString());
+          const colorIdx = seed % neonColors.length;
+          const colorClass = neonColors[colorIdx];
+          const glowClass = glowColors[colorIdx];
+          
+          const rotate = (seed % 30) - 15; // -15 to +15 degrees
+          const offsetY = (seed % 60) - 30; // -30px to +30px
+
+          return (
+            <span 
+              key={word.id || index} 
+              className={`inline-block text-5xl md:text-7xl font-black transition-all duration-75 ${colorClass} ${glowClass} ${isActive ? 'scale-125 brightness-150 z-10' : 'scale-100 opacity-90 z-0'}`}
+              style={{
+                transform: `rotate(${rotate}deg) translateY(${offsetY}px)`,
+              }}
+            >
+              {word.text}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-8">
@@ -24,14 +75,8 @@ function UIOverlay() {
         </div>
       </header>
 
-      <main className="grow flex items-center justify-center pointer-events-none z-50 mix-blend-difference">
-        {currentPhrase ? (
-          <h2 className="text-5xl md:text-7xl font-black text-white text-center leading-snug tracking-wider">
-            {currentPhrase.text}
-          </h2>
-        ) : (
-          <p className="text-gray-500 text-lg uppercase tracking-widest animate-pulse">Waiting for Signal...</p>
-        )}
+      <main className="grow flex items-center justify-center pointer-events-none z-50">
+        {renderLyrics()}
       </main>
 
       <footer className="text-gray-400 text-sm">

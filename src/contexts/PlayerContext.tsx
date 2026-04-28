@@ -60,8 +60,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         newPlayer.addListener({
             onAppReady: (app: IPlayerApp) => {
                 if (!app.managed) {
-                    // Use a known valid URL from TextAlive official tutorials (Loading Memories / secon)
-                    newPlayer.createFromSongUrl("https://piapro.jp/t/RoPB/20220122172830");
+                    newPlayer.createFromSongUrl("https://piapro.jp/t/E2i3");
                 }
             },
             onVideoReady: () => {
