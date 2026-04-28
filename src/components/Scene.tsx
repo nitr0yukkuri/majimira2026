@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
+import { OrbitControls, Stars, PerspectiveCamera, Edges } from "@react-three/drei";
 import * as THREE from "three";
 import { usePlayer } from "@/contexts/PlayerContext";
 
@@ -21,21 +21,16 @@ function CityScene() {
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, 128, 128);
 
-        ctx.fillStyle = "#ffffff";
-        // 現実的なオフィスビルのように、横長の大きな窓（帯）をまばらに配置する
-        for (let y = 0; y < 128; y += 32) {
-            // フロアごとに点灯パターンを変える
-            if (Math.random() > 0.4) {
-                // 横幅の広い窓
-                for (let x = 0; x < 128; x += 64) {
-                    // 窓の点灯率を下げる (40%の確率で点灯)
-                    if (Math.random() > 0.6) {
-                        ctx.fillRect(x + 8, y + 8, 48, 16);
-                    }
+        // Vibrant neon colors from the screenshot
+        const colors = ['#ff00ff', '#00ffff', '#ffff00', '#ff8800'];
+
+        for (let y = 8; y < 128; y += 16) {
+            for (let x = 8; x < 128; x += 16) {
+                // Scattered neon windows
+                if (Math.random() > 0.7) {
+                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                    ctx.fillRect(x, y, 10, 10);
                 }
-            } else if (Math.random() > 0.8) {
-                // たまにフロア全体が点灯している横帯
-                ctx.fillRect(0, y + 8, 128, 16);
             }
         }
         
@@ -114,12 +109,13 @@ function CityScene() {
                             <boxGeometry args={[1, b.h, 1]} />
                             <meshStandardMaterial
                                 color="#020813"
-                                emissive="#00ffcc"
+                                emissive="#ffffff"
                                 emissiveIntensity={0.3}
                                 emissiveMap={tex}
                                 roughness={0.8}
                                 metalness={0.2}
                             />
+                            <Edges color="#00ffcc" threshold={15} />
                         </mesh>
                     );
                 })}
