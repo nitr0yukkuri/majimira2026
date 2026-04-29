@@ -26,7 +26,7 @@ function UIOverlay() {
     }
 
     const words = currentPhrase.children || [];
-    const activeIndex = words.findIndex((w: any) => w.id === currentWord?.id);
+    const activeIndex = words.findIndex((w: any) => w.startTime === currentWord?.startTime);
 
     return (
       <div className="relative w-full max-w-5xl mx-auto flex flex-wrap justify-center items-center content-center gap-2 px-8">
@@ -35,10 +35,10 @@ function UIOverlay() {
           const isActive = activeIndex === index;
 
           if (!isPast && !isActive) {
-            return <span key={word.id || index} className="opacity-0">{word.text}</span>;
+            return <span key={word.startTime ?? index} className="opacity-0">{word.text}</span>;
           }
 
-          const seed = hash(word.id || word.text || index.toString());
+          const seed = hash((word.startTime ?? index).toString() + word.text);
           const colorIdx = seed % neonColors.length;
           const colorClass = neonColors[colorIdx];
           const glowClass = glowColors[colorIdx];
@@ -48,7 +48,7 @@ function UIOverlay() {
 
           return (
             <span 
-              key={word.id || index} 
+              key={word.startTime ?? index} 
               className={`inline-block text-5xl md:text-7xl font-black transition-all duration-75 ${colorClass} ${glowClass} ${isActive ? 'scale-125 brightness-150 z-10' : 'scale-100 opacity-90 z-0'}`}
               style={{
                 transform: `rotate(${rotate}deg) translateY(${offsetY}px)`,

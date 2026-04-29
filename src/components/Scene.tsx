@@ -6,6 +6,97 @@ import { OrbitControls, Stars, PerspectiveCamera, Edges } from "@react-three/dre
 import * as THREE from "three";
 import { usePlayer } from "@/contexts/PlayerContext";
 
+function IntersectionAndRoads() {
+    return (
+        <group>
+            {/* Main Roads - dark slightly glowing paths */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+                <planeGeometry args={[100, 3.5]} />
+                <meshBasicMaterial color="#001122" transparent opacity={0.8} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, 0]}>
+                <planeGeometry args={[3.5, 100]} />
+                <meshBasicMaterial color="#001122" transparent opacity={0.8} />
+            </mesh>
+
+            {/* Crosswalks at intersection (0,0) */}
+            {/* NS Crosswalks */}
+            {[-1.75, 1.75].map((z, i) => (
+                <group key={`cw-ns-${i}`} position={[0, -0.03, z]}>
+                    {[-1.2, -0.6, 0, 0.6, 1.2].map((x, j) => (
+                        <mesh key={j} position={[x, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                            <planeGeometry args={[0.3, 0.8]} />
+                            <meshBasicMaterial color="#00ffcc" transparent opacity={0.9} />
+                        </mesh>
+                    ))}
+                </group>
+            ))}
+            {/* EW Crosswalks */}
+            {[-1.75, 1.75].map((x, i) => (
+                <group key={`cw-ew-${i}`} position={[x, -0.03, 0]}>
+                    {[-1.2, -0.6, 0, 0.6, 1.2].map((z, j) => (
+                        <mesh key={j} position={[0, 0, z]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+                            <planeGeometry args={[0.3, 0.8]} />
+                            <meshBasicMaterial color="#00ffcc" transparent opacity={0.9} />
+                        </mesh>
+                    ))}
+                </group>
+            ))}
+            
+            {/* Neon Grid over everything below */}
+            <gridHelper args={[100, 50, "#004466", "#002233"]} position={[0, -0.08, 0]} />
+        </group>
+    );
+}
+
+function TrafficLights() {
+    const { currentPhrase } = usePlayer();
+    const [signalState, setSignalState] = useState(0);
+    const lastPhraseId = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (currentPhrase && currentPhrase.startTime !== lastPhraseId.current) {
+            lastPhraseId.current = currentPhrase.startTime;
+            setSignalState((prev) => (prev + 1) % 4);
+        }
+    }, [currentPhrase]);
+
+    // signalState: 0=NS Green/EW Red, 1=NS Yellow/EW Red, 2=NS Red/EW Green, 3=NS Red/EW Yellow
+    const nsColor = signalState === 0 ? "#00ffcc" : signalState === 1 ? "#ffff00" : "#ff0055";
+    const ewColor = signalState === 2 ? "#00ffcc" : signalState === 3 ? "#ffff00" : "#ff0055";
+
+    const createPole = (x: number, z: number, rotationY: number, color: string) => (
+        <group position={[x, 0, z]} rotation={[0, rotationY, 0]}>
+            {/* Pole */}
+            <mesh position={[0, 1.5, 0]}>
+                <cylinderGeometry args={[0.05, 0.05, 3]} />
+                <meshStandardMaterial color="#111" roughness={0.8} />
+            </mesh>
+            {/* Light Box */}
+            <mesh position={[0.3, 2.8, 0]}>
+                <boxGeometry args={[0.6, 0.2, 0.2]} />
+                <meshStandardMaterial color="#222" roughness={0.9} />
+                <Edges color="#00ffcc" threshold={15} />
+            </mesh>
+            {/* The active light */}
+            <mesh position={[0.3, 2.8, 0.11]}>
+                <boxGeometry args={[0.5, 0.1, 0.05]} />
+                <meshBasicMaterial color={color} />
+            </mesh>
+        </group>
+    );
+
+    return (
+        <group>
+            {/* Place poles exactly at the 4 corners outside the 3.5 wide roads */}
+            {createPole(-1.8, -1.8, 0, nsColor)}
+            {createPole(1.8, 1.8, Math.PI, nsColor)}
+            {createPole(1.8, -1.8, -Math.PI / 2, ewColor)}
+            {createPole(-1.8, 1.8, Math.PI / 2, ewColor)}
+        </group>
+    );
+}
+
 function CityScene() {
     const { isPlaying, currentWord, currentPhrase } = usePlayer();
     const boxGroupRef = useRef<THREE.Group>(null);
@@ -16,6 +107,7 @@ function CityScene() {
         const list = [];
         for (let x = -5; x <= 5; x++) {
             for (let z = -5; z <= 5; z++) {
+                if (x === 0 || z === 0) continue; // Leave center cross space for the main roads
                 if (Math.random() > 0.5) continue;
                 const height = Math.random() * 4 + 1;
                 list.push({ x: x * 2, z: z * 2, h: height, id: `${x}-${z}` });
@@ -73,12 +165,12 @@ function CityScene() {
     }, [windowData]);
 
     const litWindows = useRef<Set<number>>(new Set());
-    const lastWordId = useRef<number | string | null>(null);
+    const lastWordId = useRef<number | null>(null);
     const neonColors = useMemo(() => ['#ff00ff', '#00ffff', '#ffff00', '#ff8800'].map(c => new THREE.Color(c)), []);
 
     // Camera targets
     const [targetBuildingIndex, setTargetBuildingIndex] = useState(0);
-    const lastPhraseId = useRef<number | string | null>(null);
+    const lastPhraseId = useRef<number | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
 
     useFrame((state, delta) => {
@@ -89,8 +181,8 @@ function CityScene() {
         }
 
         // 2. Sequential Window Lighting
-        if (currentWord && currentWord.id !== lastWordId.current && windowsRef.current) {
-            lastWordId.current = currentWord.id;
+        if (currentWord && currentWord.startTime !== lastWordId.current && windowsRef.current) {
+            lastWordId.current = currentWord.startTime;
             
             const unlit = [];
             for (let i = 0; i < windowData.buildingIndices.length; i++) {
@@ -116,8 +208,8 @@ function CityScene() {
         }
 
         // 3. Phrase transition logic (change target building)
-        if (currentPhrase && currentPhrase.id !== lastPhraseId.current) {
-            lastPhraseId.current = currentPhrase.id;
+        if (currentPhrase && currentPhrase.startTime !== lastPhraseId.current) {
+            lastPhraseId.current = currentPhrase.startTime;
             setTargetBuildingIndex(Math.floor(Math.random() * buildings.length));
         }
 
@@ -144,6 +236,9 @@ function CityScene() {
         <>
             <ambientLight intensity={isPlaying ? 1 : 0.2} />
             <directionalLight position={[10, 10, 5]} intensity={1} />
+
+            <IntersectionAndRoads />
+            <TrafficLights />
 
             <group ref={boxGroupRef}>
                 {buildings.map((b) => (
