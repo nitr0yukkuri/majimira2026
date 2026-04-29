@@ -25,7 +25,6 @@ function UIOverlay() {
   return (
     <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-8">
       <header className="flex justify-between items-center text-white">
-        <h1 className="text-3xl font-bold tracking-tighter shadow-sm text-cyan-400">NEO-CITY AWAKENING</h1>
         <div className="pointer-events-auto">
           {isPlaying ? (
             <button onClick={pause} className="px-5 py-2 bg-red-500 hover:bg-red-400 rounded-full font-bold transition">PAUSE</button>
@@ -39,9 +38,7 @@ function UIOverlay() {
         {/* Lyrics are rendered in-world via the R3F Scene (src/components/Lyrics.tsx) */}
       </main>
 
-      <footer className="text-gray-400 text-sm">
-        <p>TextAlive App API Prototype</p>
-      </footer>
+      <footer className="text-gray-400 text-sm" />
     </div>
   );
 }

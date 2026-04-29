@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { Suspense, useEffect, useRef, useState, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Stars, PerspectiveCamera, Edges } from "@react-three/drei";
+import { OrbitControls, Stars, PerspectiveCamera, Edges, MeshReflectorMaterial } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { BlendFunction } from "postprocessing";
 import Lyrics from "./Lyrics";
 import * as THREE from "three";
 import { usePlayer } from "@/contexts/PlayerContext";
@@ -10,14 +12,39 @@ import { usePlayer } from "@/contexts/PlayerContext";
 function IntersectionAndRoads() {
     return (
         <group>
-            {/* Main Roads - dark slightly glowing paths */}
+            {/* Main Roads - wet reflective surface (NS road) */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
                 <planeGeometry args={[100, 3.5]} />
-                <meshBasicMaterial color="#001122" transparent opacity={0.8} />
+                <MeshReflectorMaterial
+                    color="#001122"
+                    roughness={0.15}
+                    metalness={0.9}
+                    mirror={0.85}
+                    blur={[300, 100]}
+                    resolution={512}
+                    mixBlur={0.8}
+                    mixStrength={1.5}
+                    depthScale={1.2}
+                    minDepthThreshold={0.4}
+                    maxDepthThreshold={1.4}
+                />
             </mesh>
+            {/* EW road */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, 0]}>
                 <planeGeometry args={[3.5, 100]} />
-                <meshBasicMaterial color="#001122" transparent opacity={0.8} />
+                <MeshReflectorMaterial
+                    color="#001122"
+                    roughness={0.15}
+                    metalness={0.9}
+                    mirror={0.85}
+                    blur={[300, 100]}
+                    resolution={512}
+                    mixBlur={0.8}
+                    mixStrength={1.5}
+                    depthScale={1.2}
+                    minDepthThreshold={0.4}
+                    maxDepthThreshold={1.4}
+                />
             </mesh>
 
             {/* Crosswalks at intersection (0,0) */}
@@ -170,8 +197,78 @@ function IntersectionAndRoads() {
         </group>
     );
 }
+// Light trails: cars rushing through the intersection
+const TRAIL_COLORS = ['#ff3366', '#00ffcc', '#ff00ff', '#ffff00', '#ffffff'];
+
+type TrailAxis = 'NS' | 'EW';
+interface Trail {
+    id: number;
+    axis: TrailAxis;
+    lane: number;
+    speed: number;
+    color: string;
+    length: number;
+}
+
+const TRAILS: Trail[] = Array.from({ length: 12 }, (_, i) => ({
+    id: i,
+    axis: i % 2 === 0 ? 'NS' : 'EW',
+    lane: (i % 3 === 0 ? -0.65 : i % 3 === 1 ? 0 : 0.65),
+    speed: 15 + (i * 7.3) % 25,
+    color: TRAIL_COLORS[i % TRAIL_COLORS.length],
+    length: 1.5 + (i * 0.4) % 2.5,
+}));
+
+function LightTrails() {
+    const trailPositions = useRef<number[]>(
+        TRAILS.map((t, i) => -50 + (i * 17) % 100)
+    );
+    const meshRefs = useRef<(THREE.Mesh | null)[]>([]);
+
+    useFrame((_, delta) => {
+        TRAILS.forEach((trail, i) => {
+            trailPositions.current[i] += trail.speed * delta;
+            if (trailPositions.current[i] > 55) {
+                trailPositions.current[i] = -55;
+            }
+            const mesh = meshRefs.current[i];
+            if (!mesh) return;
+            if (trail.axis === 'NS') {
+                mesh.position.set(trail.lane, 0.02, trailPositions.current[i]);
+            } else {
+                mesh.position.set(trailPositions.current[i], 0.02, trail.lane);
+            }
+        });
+    });
+
+    meshRefs.current = [];
+
+    return (
+        <>
+            {TRAILS.map((trail, i) => {
+                const isNS = trail.axis === 'NS';
+                return (
+                    <mesh
+                        key={trail.id}
+                        ref={el => { meshRefs.current[i] = el; }}
+                        rotation={[-Math.PI / 2, 0, isNS ? 0 : Math.PI / 2]}
+                    >
+                        <planeGeometry args={[0.08, trail.length]} />
+                        <meshBasicMaterial
+                            color={trail.color}
+                            transparent
+                            opacity={0.85}
+                            toneMapped={false}
+                        />
+                    </mesh>
+                );
+            })}
+        </>
+    );
+}
 
 function TrafficLights() {
+
     const { player } = usePlayer();
     const [signalState, setSignalState] = useState(0);
     const lastPhraseId = useRef<number | null>(null);
@@ -501,8 +598,11 @@ function CityScene({ testMode }: { testMode: boolean }) {
             <directionalLight position={[10, 10, 5]} intensity={1} />
 
             <IntersectionAndRoads />
+            <LightTrails />
             <TrafficLights />
-            <Lyrics />
+            <Suspense fallback={null}>
+                <Lyrics />
+            </Suspense>
 
             <group ref={boxGroupRef}>
                 {buildings.map((b) => (
@@ -524,7 +624,19 @@ function CityScene({ testMode }: { testMode: boolean }) {
 
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
                 <planeGeometry args={[100, 100]} />
-                <meshStandardMaterial color="#020813" />
+                <MeshReflectorMaterial
+                    color="#020813"
+                    roughness={0.4}
+                    metalness={0.6}
+                    mirror={0.5}
+                    blur={[400, 200]}
+                    resolution={512}
+                    mixBlur={1.0}
+                    mixStrength={0.8}
+                    depthScale={1.0}
+                    minDepthThreshold={0.4}
+                    maxDepthThreshold={1.4}
+                />
             </mesh>
         </>
     );
@@ -545,11 +657,19 @@ export default function Scene() {
     }, []);
 
     return (
-        <Canvas>
+        <Canvas gl={{ antialias: true, toneMapping: THREE.NoToneMapping }} linear>
             <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={60} />
             <OrbitControls makeDefault enabled={testMode} />
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
             <CityScene testMode={testMode} />
+            <EffectComposer>
+                <Bloom
+                    luminanceThreshold={0.1}
+                    luminanceSmoothing={0.3}
+                    intensity={1.8}
+                    blendFunction={BlendFunction.ADD}
+                />
+            </EffectComposer>
         </Canvas>
     );
 }
