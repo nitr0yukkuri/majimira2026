@@ -43,4 +43,3 @@ code, kbd, samp, pre { font-family: var(--ff-mono); }
 	:root { --base-size: 15px; }
 	h1 { font-size: calc(var(--base-size) * var(--scale-ratio) * var(--scale-ratio)); }
 }
-

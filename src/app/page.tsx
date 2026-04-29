@@ -13,9 +13,9 @@ const neonColors = ['text-[#ff00ff]', 'text-[#00ffff]', 'text-[#ffff00]', 'text-
 const glowColors = ['drop-shadow-[0_0_15px_#ff00ff]', 'drop-shadow-[0_0_15px_#00ffff]', 'drop-shadow-[0_0_15px_#ffff00]', 'drop-shadow-[0_0_15px_#ff8800]'];
 
 const hash = (str: string) => {
-    let h = 0;
-    for(let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-    return Math.abs(h);
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  return Math.abs(h);
 };
 
 function UIOverlay() {
@@ -58,13 +58,13 @@ function UIOverlay() {
           const colorIdx = seed % neonColors.length;
           const colorClass = neonColors[colorIdx];
           const glowClass = glowColors[colorIdx];
-          
+
           const rotate = (seed % 30) - 15; // -15 to +15 degrees
           const offsetY = (seed % 60) - 30; // -30px to +30px
 
           return (
-            <span 
-              key={word.startTime ?? index} 
+            <span
+              key={word.startTime ?? index}
               className={`inline-block text-5xl md:text-7xl font-black transition-all duration-75 ${colorClass} ${glowClass} ${isActive ? 'scale-125 brightness-150 z-10' : 'scale-100 opacity-90 z-0'}`}
               style={{
                 transform: `rotate(${rotate}deg) translateY(${offsetY}px)`,
