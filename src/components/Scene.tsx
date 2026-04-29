@@ -50,16 +50,19 @@ function IntersectionAndRoads() {
 }
 
 function TrafficLights() {
-    const { currentPhrase } = usePlayer();
+    const { player } = usePlayer();
     const [signalState, setSignalState] = useState(0);
     const lastPhraseId = useRef<number | null>(null);
 
-    useEffect(() => {
-        if (currentPhrase && currentPhrase.startTime !== lastPhraseId.current) {
-            lastPhraseId.current = currentPhrase.startTime;
+    useFrame(() => {
+        if (!player || !player.video) return;
+        const pos = player.timer.position;
+        const phrase = player.video.findPhrase(pos);
+        if (phrase && phrase.startTime !== lastPhraseId.current) {
+            lastPhraseId.current = phrase.startTime;
             setSignalState((prev) => (prev + 1) % 4);
         }
-    }, [currentPhrase]);
+    });
 
     // signalState: 0=NS Green/EW Red, 1=NS Yellow/EW Red, 2=NS Red/EW Green, 3=NS Red/EW Yellow
     const nsColor = signalState === 0 ? "#00ffcc" : signalState === 1 ? "#ffff00" : "#ff0055";
@@ -98,7 +101,7 @@ function TrafficLights() {
 }
 
 function CityScene() {
-    const { isPlaying, currentWord, currentPhrase } = usePlayer();
+    const { player, isPlaying } = usePlayer();
     const boxGroupRef = useRef<THREE.Group>(null);
     const windowsRef = useRef<THREE.InstancedMesh>(null);
 
@@ -169,63 +172,98 @@ function CityScene() {
     const neonColors = useMemo(() => ['#ff00ff', '#00ffff', '#ffff00', '#ff8800'].map(c => new THREE.Color(c)), []);
 
     // Camera targets
-    const [targetBuildingIndex, setTargetBuildingIndex] = useState(0);
+    const targetBuildingIndex = useRef(0);
     const lastPhraseId = useRef<number | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
 
     useFrame((state, delta) => {
-        // 1. Group bouncing
-        if (boxGroupRef.current) {
-            const time = performance.now() / 1000;
-            boxGroupRef.current.position.y = Math.sin(time * (isPlaying ? 2 : 0.5)) * 0.2;
+        let pos = 0;
+        if (player && player.video && isPlaying) {
+            pos = player.timer.position;
         }
 
-        // 2. Sequential Window Lighting
-        if (currentWord && currentWord.startTime !== lastWordId.current && windowsRef.current) {
-            lastWordId.current = currentWord.startTime;
-            
-            const unlit = [];
-            for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                if (windowData.buildingIndices[i] === targetBuildingIndex && !litWindows.current.has(i)) {
-                    unlit.push(i);
+        if (isPlaying && player && player.video) {
+            // 1. Group bouncing synced to the Beat
+            const beat = player.findBeat(pos);
+            if (beat && boxGroupRef.current) {
+                let beatProgress = (pos - beat.startTime) / beat.duration;
+                if (beatProgress < 0) beatProgress = 0;
+                if (beatProgress > 1) beatProgress = 1;
+
+                // Easing out curve for a sharp musical pulse
+                const pulse = Math.pow(1 - beatProgress, 3);
+                boxGroupRef.current.position.y = pulse * 0.25;
+            }
+
+            // 2. Sequential Window Lighting synced to Words
+            const word = player.video.findWord(pos);
+            if (word && word.startTime !== lastWordId.current && windowsRef.current) {
+                lastWordId.current = word.startTime;
+                
+                const unlit = [];
+                for (let i = 0; i < windowData.buildingIndices.length; i++) {
+                    if (windowData.buildingIndices[i] === targetBuildingIndex.current && !litWindows.current.has(i)) {
+                        unlit.push(i);
+                    }
+                }
+                
+                // Light up windows
+                const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
+                for (let c = 0; c < count; c++) {
+                    const rnd = Math.floor(Math.random() * unlit.length);
+                    const idx = unlit[rnd];
+                    unlit.splice(rnd, 1);
+                    
+                    litWindows.current.add(idx);
+                    const color = neonColors[Math.floor(Math.random() * neonColors.length)];
+                    windowsRef.current.setColorAt(idx, color);
+                }
+                if (count > 0 && windowsRef.current.instanceColor) {
+                    windowsRef.current.instanceColor.needsUpdate = true;
                 }
             }
-            
-            // Light up 3-6 windows per word
-            const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
-            for (let c = 0; c < count; c++) {
-                const rnd = Math.floor(Math.random() * unlit.length);
-                const idx = unlit[rnd];
-                unlit.splice(rnd, 1);
-                
-                litWindows.current.add(idx);
-                const color = neonColors[Math.floor(Math.random() * neonColors.length)];
-                windowsRef.current.setColorAt(idx, color);
-            }
-            if (count > 0 && windowsRef.current.instanceColor) {
-                windowsRef.current.instanceColor.needsUpdate = true;
-            }
-        }
 
-        // 3. Phrase transition logic (change target building)
-        if (currentPhrase && currentPhrase.startTime !== lastPhraseId.current) {
-            lastPhraseId.current = currentPhrase.startTime;
-            setTargetBuildingIndex(Math.floor(Math.random() * buildings.length));
+            // 3. Phrase transition logic (change target building and reset windows)
+            const phrase = player.video.findPhrase(pos);
+            if (phrase && phrase.startTime !== lastPhraseId.current) {
+                lastPhraseId.current = phrase.startTime;
+                targetBuildingIndex.current = Math.floor(Math.random() * buildings.length);
+                
+                // Clear all lit windows on phrase change for dynamic contrast
+                litWindows.current.clear();
+                const black = new THREE.Color("#000000");
+                for (let i = 0; i < windowData.matrices.length; i++) {
+                    windowsRef.current?.setColorAt(i, black);
+                }
+                if (windowsRef.current?.instanceColor) {
+                    windowsRef.current.instanceColor.needsUpdate = true;
+                }
+            }
+        } else if (boxGroupRef.current) {
+            // Idle bounce when not playing
+            const time = performance.now() / 1000;
+            boxGroupRef.current.position.y = Math.sin(time * 0.5) * 0.1;
         }
 
         // 4. Cinematic Camera Work
-        const targetB = buildings[targetBuildingIndex];
+        const targetB = buildings[targetBuildingIndex.current] || buildings[0];
         if (targetB) {
             const targetPos = new THREE.Vector3(targetB.x, targetB.h / 2, targetB.z);
             cameraTarget.current.lerp(targetPos, 1.5 * delta);
             state.camera.lookAt(cameraTarget.current);
             
             // Fly around the target building
-            const time = performance.now() / 1000;
+            let chorusMultiplier = 1;
+            if (isPlaying && player && player.video) {
+                const chorus = player.findChorus(pos);
+                if (chorus) chorusMultiplier = 1.5;
+            }
+
+            const t = isPlaying ? (pos / 1000) * 0.5 : performance.now() / 2000;
             const radius = 6;
-            const cx = targetB.x + Math.sin(time * 0.3) * radius;
-            const cz = targetB.z + Math.cos(time * 0.3) * radius;
-            const cy = targetB.h / 2 + 1.5 + Math.sin(time * 0.5) * 1;
+            const cx = targetB.x + Math.sin(t * chorusMultiplier) * radius;
+            const cz = targetB.z + Math.cos(t * chorusMultiplier) * radius;
+            const cy = targetB.h / 2 + 1.5 + Math.sin(t * 0.8) * 1.5 * chorusMultiplier;
 
             const desiredCameraPos = new THREE.Vector3(cx, cy, cz);
             state.camera.position.lerp(desiredCameraPos, 1.0 * delta);

@@ -2,8 +2,9 @@
 
 import { usePlayer, PlayerProvider } from "@/contexts/PlayerContext";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import React from 'react';
+import { IPhrase, IWord } from "textalive-app-api";
 
 // Disable SSR for 3D component and APIs using browser globals
 const Scene = dynamic(() => import("@/components/Scene").then(mod => mod.default), { ssr: false });
@@ -18,7 +19,22 @@ const hash = (str: string) => {
 };
 
 function UIOverlay() {
-  const { player, isPlaying, isReady, play, pause, currentPhrase, currentWord } = usePlayer();
+  const { player, isPlaying, isReady, play, pause } = usePlayer();
+  const [currentPhrase, setCurrentPhrase] = useState<IPhrase | null>(null);
+  const [currentWord, setCurrentWord] = useState<IWord | null>(null);
+
+  useEffect(() => {
+    if (!player || !player.video || !isPlaying) return;
+    let reqId: number;
+    const loop = () => {
+      const pos = player.timer.position;
+      setCurrentPhrase(player.video!.findPhrase(pos) || null);
+      setCurrentWord(player.video!.findWord(pos) || null);
+      reqId = requestAnimationFrame(loop);
+    };
+    reqId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(reqId);
+  }, [player, isPlaying]);
 
   const renderLyrics = () => {
     if (!currentPhrase) {

@@ -7,8 +7,6 @@ interface PlayerContextType {
     player: Player | null;
     isPlaying: boolean;
     isReady: boolean;
-    currentPhrase: IPhrase | null;
-    currentWord: IWord | null;
     play: () => void;
     pause: () => void;
 }
@@ -19,8 +17,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const [player, setPlayer] = useState<Player | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isReady, setIsReady] = useState(false);
-    const [currentPhrase, setCurrentPhrase] = useState<IPhrase | null>(null);
-    const [currentWord, setCurrentWord] = useState<IWord | null>(null);
     const playerRef = useRef<Player | null>(null);
 
     useEffect(() => {
@@ -70,17 +66,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             onPlay: () => setIsPlaying(true),
             onPause: () => setIsPlaying(false),
             onStop: () => setIsPlaying(false),
-
-            onTimeUpdate: (position: number) => {
-                const video = newPlayer.video;
-                if (!video) return;
-
-                const phrase = video.findPhrase(position);
-                setCurrentPhrase(phrase);
-
-                const word = video.findWord(position);
-                setCurrentWord(word);
-            },
         });
 
         playerRef.current = newPlayer;
@@ -99,7 +84,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const pause = () => player?.requestPause();
 
     return (
-        <PlayerContext.Provider value={{ player, isPlaying, isReady, currentPhrase, currentWord, play, pause }}>
+        <PlayerContext.Provider value={{ player, isPlaying, isReady, play, pause }}>
             {children}
             <div id="media" className="hidden"></div>
         </PlayerContext.Provider>
