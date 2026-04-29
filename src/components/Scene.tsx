@@ -42,6 +42,127 @@ function IntersectionAndRoads() {
                     ))}
                 </group>
             ))}
+
+            {/* Road Markings */}
+            <group position={[0, -0.02, 0]}>
+                {/* NS Centerlines (Dashed) */}
+                {Array.from({ length: 20 }).map((_, i) => (
+                    <group key={`cl-ns-${i}`}>
+                        <mesh position={[0, 0, -3.5 - i * 2]} rotation={[-Math.PI / 2, 0, 0]}>
+                            <planeGeometry args={[0.05, 1]} />
+                            <meshBasicMaterial color="#ffff00" transparent opacity={0.7} />
+                        </mesh>
+                        <mesh position={[0, 0, 3.5 + i * 2]} rotation={[-Math.PI / 2, 0, 0]}>
+                            <planeGeometry args={[0.05, 1]} />
+                            <meshBasicMaterial color="#ffff00" transparent opacity={0.7} />
+                        </mesh>
+                    </group>
+                ))}
+                
+                {/* EW Centerlines (Dashed) */}
+                {Array.from({ length: 20 }).map((_, i) => (
+                    <group key={`cl-ew-${i}`}>
+                        <mesh position={[3.5 + i * 2, 0, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+                            <planeGeometry args={[0.05, 1]} />
+                            <meshBasicMaterial color="#ffff00" transparent opacity={0.7} />
+                        </mesh>
+                        <mesh position={[-3.5 - i * 2, 0, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+                            <planeGeometry args={[0.05, 1]} />
+                            <meshBasicMaterial color="#ffff00" transparent opacity={0.7} />
+                        </mesh>
+                    </group>
+                ))}
+
+                {/* Stop Lines */}
+                <mesh position={[-0.875, 0, 2.3]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[1.65, 0.2]} />
+                    <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                </mesh>
+                <mesh position={[0.875, 0, -2.3]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[1.65, 0.2]} />
+                    <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                </mesh>
+                <mesh position={[-2.3, 0, 0.875]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+                    <planeGeometry args={[1.65, 0.2]} />
+                    <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                </mesh>
+                <mesh position={[2.3, 0, -0.875]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
+                    <planeGeometry args={[1.65, 0.2]} />
+                    <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                </mesh>
+
+                {/* Intersection Center Diamond */}
+                <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
+                    <planeGeometry args={[0.4, 0.4]} />
+                    <meshBasicMaterial color="#ffffff" transparent opacity={0.5} />
+                </mesh>
+
+                {/* Straight/Turn Arrows */}
+                <group position={[-0.875, 0, 4]}>
+                    <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <planeGeometry args={[0.1, 1.5]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                    <mesh position={[0, 0, -0.75]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <cylinderGeometry args={[0, 0.2, 0.4, 3]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                </group>
+                <group position={[0.875, 0, -4]} rotation={[0, Math.PI, 0]}>
+                    <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <planeGeometry args={[0.1, 1.5]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                    <mesh position={[0, 0, -0.75]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <cylinderGeometry args={[0, 0.2, 0.4, 3]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                </group>
+                <group position={[-4, 0, 0.875]} rotation={[0, -Math.PI / 2, 0]}>
+                    <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <planeGeometry args={[0.1, 1.5]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                    <mesh position={[0, 0, -0.75]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <cylinderGeometry args={[0, 0.2, 0.4, 3]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                </group>
+                <group position={[4, 0, -0.875]} rotation={[0, Math.PI / 2, 0]}>
+                    <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <planeGeometry args={[0.1, 1.5]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                    <mesh position={[0, 0, -0.75]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <cylinderGeometry args={[0, 0.2, 0.4, 3]} />
+                        <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+                    </mesh>
+                </group>
+            </group>
+
+            {/* Sidewalks (4 quadrants) */}
+            {[
+                [25, 25],
+                [-25, 25],
+                [-25, -25],
+                [25, -25]
+            ].map((pos, i) => (
+                <group key={`sw-${i}`} position={[pos[0], -0.02, pos[1]]}>
+                    <mesh>
+                        <boxGeometry args={[46.5, 0.04, 46.5]} />
+                        <meshBasicMaterial color="#010a12" />
+                    </mesh>
+                    {/* Curb highlight (Neon glow along edge) */}
+                    <mesh position={[0, 0.02, Math.sign(pos[1]) * -23.25]}>
+                        <boxGeometry args={[46.5, 0.02, 0.05]} />
+                        <meshBasicMaterial color="#00ffcc" transparent opacity={0.3} />
+                    </mesh>
+                    <mesh position={[Math.sign(pos[0]) * -23.25, 0.02, 0]}>
+                        <boxGeometry args={[0.05, 0.02, 46.5]} />
+                        <meshBasicMaterial color="#00ffcc" transparent opacity={0.3} />
+                    </mesh>
+                </group>
+            ))}
             
             {/* Neon Grid over everything below */}
             <gridHelper args={[100, 50, "#004466", "#002233"]} position={[0, -0.08, 0]} />
@@ -68,34 +189,90 @@ function TrafficLights() {
     const nsColor = signalState === 0 ? "#00ffcc" : signalState === 1 ? "#ffff00" : "#ff0055";
     const ewColor = signalState === 2 ? "#00ffcc" : signalState === 3 ? "#ffff00" : "#ff0055";
 
-    const createPole = (x: number, z: number, rotationY: number, color: string) => (
+    const pedColorNS = (signalState === 0 || signalState === 1) ? "#00ffcc" : "#ff0055"; 
+    const pedColorEW = (signalState === 2 || signalState === 3) ? "#00ffcc" : "#ff0055";
+
+    const createPole = (x: number, z: number, rotationY: number, color: string, pedColor: string) => (
         <group position={[x, 0, z]} rotation={[0, rotationY, 0]}>
-            {/* Pole */}
-            <mesh position={[0, 1.5, 0]}>
-                <cylinderGeometry args={[0.05, 0.05, 3]} />
+            {/* Main Pole */}
+            <mesh position={[0, 2.0, 0]}>
+                <cylinderGeometry args={[0.05, 0.05, 4]} />
                 <meshStandardMaterial color="#111" roughness={0.8} />
             </mesh>
-            {/* Light Box */}
-            <mesh position={[0.3, 2.8, 0]}>
-                <boxGeometry args={[0.6, 0.2, 0.2]} />
-                <meshStandardMaterial color="#222" roughness={0.9} />
-                <Edges color="#00ffcc" threshold={15} />
-            </mesh>
-            {/* The active light */}
-            <mesh position={[0.3, 2.8, 0.11]}>
-                <boxGeometry args={[0.5, 0.1, 0.05]} />
-                <meshBasicMaterial color={color} />
-            </mesh>
+            
+            {/* Street Lamp (Overhang) */}
+            <group position={[0, 3.8, 0]}>
+                <mesh position={[0.5, 0.2, 0]} rotation={[0, 0, Math.PI / 2.2]}>
+                    <cylinderGeometry args={[0.02, 0.02, 1.2]} />
+                    <meshStandardMaterial color="#111" roughness={0.8} />
+                </mesh>
+                <mesh position={[1.0, 0.4, 0]}>
+                    <boxGeometry args={[0.4, 0.05, 0.2]} />
+                    <meshBasicMaterial color="#fff" />
+                </mesh>
+            </group>
+
+            {/* Vehicular Traffic Light */}
+            <group position={[0.4, 2.8, 0]}>
+                {/* Arm */}
+                <mesh position={[-0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                    <cylinderGeometry args={[0.02, 0.02, 0.4]} />
+                    <meshStandardMaterial color="#111" />
+                </mesh>
+                {/* Box */}
+                <mesh>
+                    <boxGeometry args={[0.7, 0.25, 0.2]} />
+                    <meshStandardMaterial color="#222" roughness={0.9} />
+                    <Edges color="#00ffcc" threshold={15} />
+                </mesh>
+                {/* Hoods (Visors) */}
+                {[-0.2, 0, 0.2].map((lx, i) => (
+                    <mesh key={i} position={[lx, 0.05, 0.12]} rotation={[Math.PI / 2, 0, 0]}>
+                        <cylinderGeometry args={[0.06, 0.06, 0.1, 16, 1, true, 0, Math.PI]} />
+                        <meshStandardMaterial color="#111" side={THREE.DoubleSide} />
+                    </mesh>
+                ))}
+                {/* Active Light Lamp */}
+                <mesh position={[-0.2, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
+                    <cylinderGeometry args={[0.05, 0.05, 0.02]} />
+                    {color === "#00ffcc" ? <meshBasicMaterial color={color} /> : <meshStandardMaterial color="#333" />}
+                </mesh>
+                <mesh position={[0, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
+                    <cylinderGeometry args={[0.05, 0.05, 0.02]} />
+                    {color === "#ffff00" ? <meshBasicMaterial color={color} /> : <meshStandardMaterial color="#333" />}
+                </mesh>
+                <mesh position={[0.2, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
+                    <cylinderGeometry args={[0.05, 0.05, 0.02]} />
+                    {color === "#ff0055" ? <meshBasicMaterial color={color} /> : <meshStandardMaterial color="#333" />}
+                </mesh>
+            </group>
+
+            {/* Pedestrian Traffic Light */}
+            <group position={[0.1, 1.5, 0.1]} rotation={[0, Math.PI / 4, 0]}>
+                {/* Box */}
+                <mesh>
+                    <boxGeometry args={[0.2, 0.4, 0.15]} />
+                    <meshStandardMaterial color="#222" />
+                </mesh>
+                {/* Pedestrian Active Light */}
+                <mesh position={[0, 0.1, 0.08]}>
+                    <planeGeometry args={[0.1, 0.1]} />
+                    {pedColor === "#ff0055" ? <meshBasicMaterial color={pedColor} /> : <meshStandardMaterial color="#333" />}
+                </mesh>
+                <mesh position={[0, -0.1, 0.08]}>
+                    <planeGeometry args={[0.1, 0.1]} />
+                    {pedColor === "#00ffcc" ? <meshBasicMaterial color={pedColor} /> : <meshStandardMaterial color="#333" />}
+                </mesh>
+            </group>
         </group>
     );
 
     return (
         <group>
-            {/* Place poles exactly at the 4 corners outside the 3.5 wide roads */}
-            {createPole(-1.8, -1.8, 0, nsColor)}
-            {createPole(1.8, 1.8, Math.PI, nsColor)}
-            {createPole(1.8, -1.8, -Math.PI / 2, ewColor)}
-            {createPole(-1.8, 1.8, Math.PI / 2, ewColor)}
+            {createPole(-1.9, -1.9, 0, nsColor, pedColorEW)}
+            {createPole(1.9, 1.9, Math.PI, nsColor, pedColorEW)}
+            {createPole(1.9, -1.9, -Math.PI / 2, ewColor, pedColorNS)}
+            {createPole(-1.9, 1.9, Math.PI / 2, ewColor, pedColorNS)}
         </group>
     );
 }
