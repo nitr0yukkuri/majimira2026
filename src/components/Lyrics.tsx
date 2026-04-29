@@ -32,17 +32,23 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
         if (!ref.current) return;
         const t = state.clock.getElapsedTime();
 
-        // floating motion
-        const idleY = base.y + Math.sin(t * 1.2 + index) * 0.08;
-        const targetY = isActive ? base.y + 0.9 : idleY;
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+        const up = new THREE.Vector3().copy(camera.up).normalize();
 
-        pos.current.y += (targetY - pos.current.y) * Math.min(1, delta * 8);
+        const center = new THREE.Vector3()
+            .copy(camera.position)
+            .addScaledVector(forward, 4.5)
+            .addScaledVector(up, 1.4);
 
-        // slight sway
-        const swayX = Math.sin(t * 0.7 + index) * 0.04;
-        const swayZ = Math.cos(t * 0.9 + index * 1.3) * 0.04;
+        const spread = (index - 0.5) * 1.1;
+        const floatY = Math.sin(t * 1.2 + index) * 0.18 + (isActive ? 0.25 : 0);
+        const sway = Math.sin(t * 0.7 + index) * 0.08;
 
-        ref.current.position.set(base.x + swayX, pos.current.y, base.z + swayZ);
+        ref.current.position.copy(center)
+            .addScaledVector(right, spread + sway)
+            .addScaledVector(up, floatY);
 
         // always face camera
         ref.current.lookAt(camera.position);
@@ -81,20 +87,25 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
 }
 
 export default function Lyrics() {
-    const { player, isReady } = usePlayer();
+    const { player } = usePlayer();
     const [currentPhrase, setCurrentPhrase] = useState<IPhrase | null>(null);
     const [activeWordStartTime, setActiveWordStartTime] = useState<number | null>(null);
     const lastPhraseId = useRef<number | null>(null);
     const lastWordId = useRef<number | null>(null);
 
     useEffect(() => {
-        if (!isReady || !player || !player.video) return;
+        if (!player) return;
 
         let frameId = 0;
         const tick = () => {
+            if (!player.video) {
+                frameId = requestAnimationFrame(tick);
+                return;
+            }
+
             const pos = player.timer.position;
-            const phrase = player.video.findPhrase(pos) || null;
-            const word = player.video.findWord(pos) || null;
+            const phrase = player.video.findPhrase(pos) || player.video.firstPhrase || null;
+            const word = player.video.findWord(pos) || player.video.firstWord || null;
 
             if (phrase?.startTime !== lastPhraseId.current) {
                 lastPhraseId.current = phrase?.startTime ?? null;
@@ -111,7 +122,7 @@ export default function Lyrics() {
 
         frameId = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(frameId);
-    }, [player, isReady]);
+    }, [player]);
 
     const currentWords = useMemo(() => (currentPhrase?.children || []) as IWord[], [currentPhrase]);
 
