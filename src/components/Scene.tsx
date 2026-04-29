@@ -100,7 +100,7 @@ function TrafficLights() {
     );
 }
 
-function CityScene() {
+function CityScene({ testMode }: { testMode: boolean }) {
     const { player, isPlaying } = usePlayer();
     const boxGroupRef = useRef<THREE.Group>(null);
     const windowsRef = useRef<THREE.InstancedMesh>(null);
@@ -246,27 +246,29 @@ function CityScene() {
         }
 
         // 4. Cinematic Camera Work
-        const targetB = buildings[targetBuildingIndex.current] || buildings[0];
-        if (targetB) {
-            const targetPos = new THREE.Vector3(targetB.x, targetB.h / 2, targetB.z);
-            cameraTarget.current.lerp(targetPos, 1.5 * delta);
-            state.camera.lookAt(cameraTarget.current);
-            
-            // Fly around the target building
-            let chorusMultiplier = 1;
-            if (isPlaying && player && player.video) {
-                const chorus = player.findChorus(pos);
-                if (chorus) chorusMultiplier = 1.5;
+        if (!testMode) {
+            const targetB = buildings[targetBuildingIndex.current] || buildings[0];
+            if (targetB) {
+                const targetPos = new THREE.Vector3(targetB.x, targetB.h / 2, targetB.z);
+                cameraTarget.current.lerp(targetPos, 1.5 * delta);
+                state.camera.lookAt(cameraTarget.current);
+                
+                // Fly around the target building
+                let chorusMultiplier = 1;
+                if (isPlaying && player && player.video) {
+                    const chorus = player.findChorus(pos);
+                    if (chorus) chorusMultiplier = 1.5;
+                }
+
+                const t = isPlaying ? (pos / 1000) * 0.5 : performance.now() / 2000;
+                const radius = 6;
+                const cx = targetB.x + Math.sin(t * chorusMultiplier) * radius;
+                const cz = targetB.z + Math.cos(t * chorusMultiplier) * radius;
+                const cy = targetB.h / 2 + 1.5 + Math.sin(t * 0.8) * 1.5 * chorusMultiplier;
+
+                const desiredCameraPos = new THREE.Vector3(cx, cy, cz);
+                state.camera.position.lerp(desiredCameraPos, 1.0 * delta);
             }
-
-            const t = isPlaying ? (pos / 1000) * 0.5 : performance.now() / 2000;
-            const radius = 6;
-            const cx = targetB.x + Math.sin(t * chorusMultiplier) * radius;
-            const cz = targetB.z + Math.cos(t * chorusMultiplier) * radius;
-            const cy = targetB.h / 2 + 1.5 + Math.sin(t * 0.8) * 1.5 * chorusMultiplier;
-
-            const desiredCameraPos = new THREE.Vector3(cx, cy, cz);
-            state.camera.position.lerp(desiredCameraPos, 1.0 * delta);
         }
     });
 
@@ -305,11 +307,25 @@ function CityScene() {
 }
 
 export default function Scene() {
+    const [testMode, setTestMode] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key.toLowerCase() === 't') {
+                e.preventDefault();
+                setTestMode(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     return (
         <Canvas>
             <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={60} />
+            <OrbitControls makeDefault enabled={testMode} />
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-            <CityScene />
+            <CityScene testMode={testMode} />
         </Canvas>
     );
 }
