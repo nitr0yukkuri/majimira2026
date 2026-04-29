@@ -1,10 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;900&family=RocknRoll+One&family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;600;700&display=swap');
 @import 'tailwindcss';
 
 /* Google Fonts（見出し：Inter / 本文：Noto Sans JP などに変更可） */
 
 :root {
 	--ff-sans: 'Inter', 'Noto Sans JP', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+	--ff-lyrics: 'M PLUS 1p', 'Noto Sans JP', var(--ff-sans);
 	--ff-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;
 	--base-size: 16px;
 	--scale-ratio: 1.125; /* タイポグラフィスケール */
@@ -13,6 +15,57 @@
 	--max-text-width: 70ch;
 }
 
+/* 歌詞用スタイル */
+.lyrics-word {
+	font-family: var(--ff-lyrics);
+	font-weight: 900;
+	letter-spacing: -0.02em;
+	line-height: 1;
+	text-transform: none;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Dance-like lyric styling (gradient fill, thin white outline, neon glow) */
+.lyrics-container {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.lyrics-word {
+	-webkit-text-stroke: 1.5px rgba(255,255,255,0.9);
+	text-stroke: 1.5px rgba(255,255,255,0.9);
+	background: linear-gradient(90deg, #ff6aff 0%, #00fff0 50%, #ffd600 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	filter: drop-shadow(0 6px 20px rgba(0,0,0,0.6));
+	transition: transform 140ms cubic-bezier(.2,.9,.3,1), opacity 140ms ease, filter 140ms ease;
+}
+
+.lyrics-active {
+	transform: translateY(-6px) scale(1.15) rotate(0deg);
+	opacity: 1 !important;
+	filter: drop-shadow(0 12px 30px rgba(0,255,240,0.25)) drop-shadow(0 0 18px rgba(255,0,200,0.12));
+}
+
+.lyrics-passive {
+	transform: translateY(0) scale(0.95) rotate(-2deg);
+	opacity: 0.55;
+	filter: none;
+}
+
+@keyframes lyricPop {
+	0% { transform: scale(1.4) translateY(8px); opacity: 0; }
+	40% { transform: scale(1.06) translateY(-4px); opacity: 1; }
+	100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.lyrics-active.animate-pop {
+	animation: lyricPop 220ms cubic-bezier(.2,.9,.3,1) both;
+}
 html {
 	font-size: var(--base-size);
 	-webkit-font-smoothing: antialiased;

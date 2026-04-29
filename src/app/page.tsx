@@ -65,7 +65,7 @@ function UIOverlay() {
           return (
             <span
               key={word.startTime ?? index}
-              className={`inline-block text-5xl md:text-7xl font-black transition-all duration-75 ${colorClass} ${glowClass} ${isActive ? 'scale-125 brightness-150 z-10' : 'scale-100 opacity-90 z-0'}`}
+              className={`inline-block text-5xl md:text-7xl font-black transition-all duration-150 ${colorClass} ${glowClass} ${isActive ? 'lyrics-active animate-pop scale-125 brightness-150 z-10' : 'lyrics-passive scale-100 z-0'}`}
               style={{
                 transform: `rotate(${rotate}deg) translateY(${offsetY}px)`,
               }}

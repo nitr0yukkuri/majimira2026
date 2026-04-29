@@ -174,6 +174,7 @@ function TrafficLights() {
     const { player } = usePlayer();
     const [signalState, setSignalState] = useState(0);
     const lastPhraseId = useRef<number | null>(null);
+    const lightRefs = useRef<(THREE.PointLight | null)[]>([]);
 
     useFrame(() => {
         if (!player || !player.video) return;
@@ -183,7 +184,25 @@ function TrafficLights() {
             lastPhraseId.current = phrase.startTime;
             setSignalState((prev) => (prev + 1) % 4);
         }
+
+        // Pulse traffic lights on the beat/chorus
+        let intensity = 0.5;
+        const beat = player.findBeat(pos);
+        if (beat) {
+            let beatProgress = (pos - beat.startTime) / beat.duration;
+            if (beatProgress < 0) beatProgress = 0;
+            if (beatProgress > 1) beatProgress = 1;
+            intensity = 0.5 + Math.pow(1 - beatProgress, 3) * 3;
+        }
+        const chorus = player.findChorus(pos);
+        if (chorus) intensity *= 1.5;
+
+        lightRefs.current.forEach(light => {
+            if (light) light.intensity = intensity;
+        });
     });
+
+    lightRefs.current = [];
 
     // signalState: 0=NS Green/EW Red, 1=NS Yellow/EW Red, 2=NS Red/EW Green, 3=NS Red/EW Yellow
     const nsColor = signalState === 0 ? "#00ffcc" : signalState === 1 ? "#ffff00" : "#ff0055";
@@ -235,15 +254,30 @@ function TrafficLights() {
                 {/* Active Light Lamp */}
                 <mesh position={[-0.2, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
                     <cylinderGeometry args={[0.05, 0.05, 0.02]} />
-                    {color === "#00ffcc" ? <meshBasicMaterial color={color} /> : <meshStandardMaterial color="#333" />}
+                    {color === "#00ffcc" ? (
+                        <>
+                            <meshBasicMaterial color={color} />
+                            <pointLight ref={el => { if (el) lightRefs.current.push(el) }} color={color} distance={3} intensity={0.5} />
+                        </>
+                    ) : <meshStandardMaterial color="#333" />}
                 </mesh>
                 <mesh position={[0, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
                     <cylinderGeometry args={[0.05, 0.05, 0.02]} />
-                    {color === "#ffff00" ? <meshBasicMaterial color={color} /> : <meshStandardMaterial color="#333" />}
+                    {color === "#ffff00" ? (
+                        <>
+                            <meshBasicMaterial color={color} />
+                            <pointLight ref={el => { if (el) lightRefs.current.push(el) }} color={color} distance={3} intensity={0.5} />
+                        </>
+                    ) : <meshStandardMaterial color="#333" />}
                 </mesh>
                 <mesh position={[0.2, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
                     <cylinderGeometry args={[0.05, 0.05, 0.02]} />
-                    {color === "#ff0055" ? <meshBasicMaterial color={color} /> : <meshStandardMaterial color="#333" />}
+                    {color === "#ff0055" ? (
+                        <>
+                            <meshBasicMaterial color={color} />
+                            <pointLight ref={el => { if (el) lightRefs.current.push(el) }} color={color} distance={3} intensity={0.5} />
+                        </>
+                    ) : <meshStandardMaterial color="#333" />}
                 </mesh>
             </group>
 
@@ -257,11 +291,21 @@ function TrafficLights() {
                 {/* Pedestrian Active Light */}
                 <mesh position={[0, 0.1, 0.08]}>
                     <planeGeometry args={[0.1, 0.1]} />
-                    {pedColor === "#ff0055" ? <meshBasicMaterial color={pedColor} /> : <meshStandardMaterial color="#333" />}
+                    {pedColor === "#ff0055" ? (
+                        <>
+                            <meshBasicMaterial color={pedColor} />
+                            <pointLight ref={el => { if (el) lightRefs.current.push(el) }} color={pedColor} distance={1.5} intensity={0.5} />
+                        </>
+                    ) : <meshStandardMaterial color="#333" />}
                 </mesh>
                 <mesh position={[0, -0.1, 0.08]}>
                     <planeGeometry args={[0.1, 0.1]} />
-                    {pedColor === "#00ffcc" ? <meshBasicMaterial color={pedColor} /> : <meshStandardMaterial color="#333" />}
+                    {pedColor === "#00ffcc" ? (
+                        <>
+                            <meshBasicMaterial color={pedColor} />
+                            <pointLight ref={el => { if (el) lightRefs.current.push(el) }} color={pedColor} distance={1.5} intensity={0.5} />
+                        </>
+                    ) : <meshStandardMaterial color="#333" />}
                 </mesh>
             </group>
         </group>
@@ -363,13 +407,12 @@ function CityScene({ testMode }: { testMode: boolean }) {
             // 1. Group bouncing synced to the Beat
             const beat = player.findBeat(pos);
             if (beat && boxGroupRef.current) {
-                let beatProgress = (pos - beat.startTime) / beat.duration;
-                if (beatProgress < 0) beatProgress = 0;
-                if (beatProgress > 1) beatProgress = 1;
-
-                // Easing out curve for a sharp musical pulse
-                const pulse = Math.pow(1 - beatProgress, 3);
-                boxGroupRef.current.position.y = pulse * 0.25;
+                // User requested to stop the "headbanging" effect
+                // let beatProgress = (pos - beat.startTime) / beat.duration;
+                // if (beatProgress < 0) beatProgress = 0;
+                // if (beatProgress > 1) beatProgress = 1;
+                // const pulse = Math.pow(1 - beatProgress, 3);
+                // boxGroupRef.current.position.y = pulse * 0.25;
             }
 
             // 2. Sequential Window Lighting synced to Words
@@ -406,7 +449,8 @@ function CityScene({ testMode }: { testMode: boolean }) {
                 lastPhraseId.current = phrase.startTime;
                 targetBuildingIndex.current = Math.floor(Math.random() * buildings.length);
                 
-                // Clear all lit windows on phrase change for dynamic contrast
+                // User requested to NOT reset the windows so they keep accumulating
+                /*
                 litWindows.current.clear();
                 const black = new THREE.Color("#000000");
                 for (let i = 0; i < windowData.matrices.length; i++) {
@@ -415,6 +459,7 @@ function CityScene({ testMode }: { testMode: boolean }) {
                 if (windowsRef.current?.instanceColor) {
                     windowsRef.current.instanceColor.needsUpdate = true;
                 }
+                */
             }
         } else if (boxGroupRef.current) {
             // Idle bounce when not playing
