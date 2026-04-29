@@ -270,7 +270,7 @@ export default function Buildings({ testMode }: { testMode: boolean }) {
             <group ref={groupRef}>
                 <BuildingMeshes buildings={buildings} />
                 {windowData.matrices.length > 0 && (
-                    <Windows instancedMeshRef={windowsMeshRef} />
+                    <Windows count={windowData.matrices.length} instancedMeshRef={windowsMeshRef} />
                 )}
             </group>
             <GroundPlane />

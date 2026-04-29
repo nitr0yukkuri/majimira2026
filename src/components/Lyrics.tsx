@@ -26,7 +26,9 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
         return new THREE.Vector3(x, y, z);
     }, [word, index]);
 
-    const pos = useRef(base.clone());
+    const smoothedPosition = useRef(base.clone());
+    const smoothedScale = useRef(isActive ? 1.2 : 0.85);
+    const isInitialized = useRef(false);
 
     useFrame((state, delta) => {
         if (!ref.current) return;
@@ -43,20 +45,28 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
             .addScaledVector(up, 1.4);
 
         const spread = (index - 0.5) * 1.1;
-        const floatY = Math.sin(t * 1.2 + index) * 0.18 + (isActive ? 0.25 : 0);
-        const sway = Math.sin(t * 0.7 + index) * 0.08;
+        const floatY = Math.sin(t * 1.2 + index) * 0.08 + (isActive ? 0.14 : 0);
+        const sway = Math.sin(t * 0.7 + index) * 0.03;
 
-        ref.current.position.copy(center)
+        const targetPosition = center
             .addScaledVector(right, spread + sway)
             .addScaledVector(up, floatY);
+
+        if (!isInitialized.current) {
+            smoothedPosition.current.copy(targetPosition);
+            isInitialized.current = true;
+        }
+
+        smoothedPosition.current.lerp(targetPosition, 1 - Math.exp(-delta * 10));
+        ref.current.position.copy(smoothedPosition.current);
 
         // always face camera
         ref.current.lookAt(camera.position);
 
         // scale/interpolation for active
         const targetScale = isActive ? 1.2 : 0.85;
-        const s = ref.current.scale.x + (targetScale - ref.current.scale.x) * Math.min(1, delta * 8);
-        ref.current.scale.set(s, s, s);
+        smoothedScale.current = THREE.MathUtils.damp(smoothedScale.current, targetScale, 10, delta);
+        ref.current.scale.setScalar(smoothedScale.current);
     });
 
     // color/emissive based on active
