@@ -26,20 +26,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (typeof window === "undefined") return;
 
-        // Next.js dev overlay catches unhandled rejections aggressively.
-        // To silence the harmless AbortError from media.play(), we patch the native method.
+        // Prevent Next.js dev overlay from aggressively showing harmless AbortError from media.play()
         if (!(HTMLMediaElement.prototype as any)._isPatchedForAbort) {
             const originalPlay = HTMLMediaElement.prototype.play;
             HTMLMediaElement.prototype.play = function () {
                 const promise = originalPlay.apply(this, arguments as any);
                 if (promise !== undefined) {
-                    return promise.catch((error) => {
-                        if (error.name !== "AbortError") {
-                            throw error;
-                        }
+                    promise.catch((error) => {
+                        if (error.name !== "AbortError") throw error;
                     });
                 }
-                return promise;
+                return promise; // Return the original promise so TextAlive's internal state doesn't break!
             };
             (HTMLMediaElement.prototype as any)._isPatchedForAbort = true;
         }
@@ -60,7 +57,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         newPlayer.addListener({
             onAppReady: (app: IPlayerApp) => {
                 if (!app.managed) {
-                    newPlayer.createFromSongUrl("https://piapro.jp/t/E2i3");
+                    newPlayer.createFromSongUrl("https://piapro.jp/t/E2i3/20251215092113");
                 }
             },
             onVideoReady: () => {
@@ -92,6 +89,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return () => {
             newPlayer.dispose();
             playerRef.current = null;
+            if (mediaEl) {
+                mediaEl.innerHTML = "";
+            }
         };
     }, []);
 
