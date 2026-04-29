@@ -33,7 +33,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 const promise = originalPlay.apply(this, arguments as any);
                 if (promise !== undefined) {
                     promise.catch((error) => {
-                        if (error.name !== "AbortError") throw error;
+                        if (error.name !== "AbortError" && error.name !== "NotAllowedError") throw error;
                     });
                 }
                 return promise; // Return the original promise so TextAlive's internal state doesn't break!
