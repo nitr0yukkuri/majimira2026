@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera, Edges } from "@react-three/drei";
+import Lyrics from "./Lyrics";
 import * as THREE from "three";
 import { usePlayer } from "@/contexts/PlayerContext";
 
@@ -58,7 +59,7 @@ function IntersectionAndRoads() {
                         </mesh>
                     </group>
                 ))}
-                
+
                 {/* EW Centerlines (Dashed) */}
                 {Array.from({ length: 20 }).map((_, i) => (
                     <group key={`cl-ew-${i}`}>
@@ -163,7 +164,7 @@ function IntersectionAndRoads() {
                     </mesh>
                 </group>
             ))}
-            
+
             {/* Neon Grid over everything below */}
             <gridHelper args={[100, 50, "#004466", "#002233"]} position={[0, -0.08, 0]} />
         </group>
@@ -208,7 +209,7 @@ function TrafficLights() {
     const nsColor = signalState === 0 ? "#00ffcc" : signalState === 1 ? "#ffff00" : "#ff0055";
     const ewColor = signalState === 2 ? "#00ffcc" : signalState === 3 ? "#ffff00" : "#ff0055";
 
-    const pedColorNS = (signalState === 0 || signalState === 1) ? "#00ffcc" : "#ff0055"; 
+    const pedColorNS = (signalState === 0 || signalState === 1) ? "#00ffcc" : "#ff0055";
     const pedColorEW = (signalState === 2 || signalState === 3) ? "#00ffcc" : "#ff0055";
 
     const createPole = (x: number, z: number, rotationY: number, color: string, pedColor: string) => (
@@ -218,7 +219,7 @@ function TrafficLights() {
                 <cylinderGeometry args={[0.05, 0.05, 4]} />
                 <meshStandardMaterial color="#111" roughness={0.8} />
             </mesh>
-            
+
             {/* Street Lamp (Overhang) */}
             <group position={[0, 3.8, 0]}>
                 <mesh position={[0.5, 0.2, 0]} rotation={[0, 0, Math.PI / 2.2]}>
@@ -419,21 +420,21 @@ function CityScene({ testMode }: { testMode: boolean }) {
             const word = player.video.findWord(pos);
             if (word && word.startTime !== lastWordId.current && windowsRef.current) {
                 lastWordId.current = word.startTime;
-                
+
                 const unlit = [];
                 for (let i = 0; i < windowData.buildingIndices.length; i++) {
                     if (windowData.buildingIndices[i] === targetBuildingIndex.current && !litWindows.current.has(i)) {
                         unlit.push(i);
                     }
                 }
-                
+
                 // Light up windows
                 const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
                 for (let c = 0; c < count; c++) {
                     const rnd = Math.floor(Math.random() * unlit.length);
                     const idx = unlit[rnd];
                     unlit.splice(rnd, 1);
-                    
+
                     litWindows.current.add(idx);
                     const color = neonColors[Math.floor(Math.random() * neonColors.length)];
                     windowsRef.current.setColorAt(idx, color);
@@ -448,7 +449,7 @@ function CityScene({ testMode }: { testMode: boolean }) {
             if (phrase && phrase.startTime !== lastPhraseId.current) {
                 lastPhraseId.current = phrase.startTime;
                 targetBuildingIndex.current = Math.floor(Math.random() * buildings.length);
-                
+
                 // User requested to NOT reset the windows so they keep accumulating
                 /*
                 litWindows.current.clear();
@@ -474,7 +475,7 @@ function CityScene({ testMode }: { testMode: boolean }) {
                 const targetPos = new THREE.Vector3(targetB.x, targetB.h / 2, targetB.z);
                 cameraTarget.current.lerp(targetPos, 1.5 * delta);
                 state.camera.lookAt(cameraTarget.current);
-                
+
                 // Fly around the target building
                 let chorusMultiplier = 1;
                 if (isPlaying && player && player.video) {
@@ -501,6 +502,7 @@ function CityScene({ testMode }: { testMode: boolean }) {
 
             <IntersectionAndRoads />
             <TrafficLights />
+            <Lyrics />
 
             <group ref={boxGroupRef}>
                 {buildings.map((b) => (
@@ -510,7 +512,7 @@ function CityScene({ testMode }: { testMode: boolean }) {
                         <Edges color="#00ffcc" threshold={15} />
                     </mesh>
                 ))}
-                
+
                 {/* Instanced Mesh for Windows */}
                 {windowData.matrices.length > 0 && (
                     <instancedMesh ref={windowsRef} args={[undefined, undefined, windowData.matrices.length]}>

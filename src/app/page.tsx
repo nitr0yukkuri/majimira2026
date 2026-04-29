@@ -20,63 +20,7 @@ const hash = (str: string) => {
 
 function UIOverlay() {
   const { player, isPlaying, isReady, play, pause } = usePlayer();
-  const [currentPhrase, setCurrentPhrase] = useState<IPhrase | null>(null);
-  const [currentWord, setCurrentWord] = useState<IWord | null>(null);
 
-  useEffect(() => {
-    if (!player || !player.video || !isPlaying) return;
-    let reqId: number;
-    const loop = () => {
-      const pos = player.timer.position;
-      setCurrentPhrase(player.video!.findPhrase(pos) || null);
-      setCurrentWord(player.video!.findWord(pos) || null);
-      reqId = requestAnimationFrame(loop);
-    };
-    reqId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(reqId);
-  }, [player, isPlaying]);
-
-  const renderLyrics = () => {
-    if (!currentPhrase) {
-      return <p className="text-gray-500 text-lg uppercase tracking-widest animate-pulse">Waiting for Signal...</p>;
-    }
-
-    const words = currentPhrase.children || [];
-    const activeIndex = words.findIndex((w: any) => w.startTime === currentWord?.startTime);
-
-    return (
-      <div className="relative w-full max-w-5xl mx-auto flex flex-wrap justify-center items-center content-center gap-2 px-8">
-        {words.map((word: any, index: number) => {
-          const isPast = activeIndex !== -1 && index <= activeIndex;
-          const isActive = activeIndex === index;
-
-          if (!isPast && !isActive) {
-            return <span key={word.startTime ?? index} className="opacity-0">{word.text}</span>;
-          }
-
-          const seed = hash((word.startTime ?? index).toString() + word.text);
-          const colorIdx = seed % neonColors.length;
-          const colorClass = neonColors[colorIdx];
-          const glowClass = glowColors[colorIdx];
-
-          const rotate = (seed % 30) - 15; // -15 to +15 degrees
-          const offsetY = (seed % 60) - 30; // -30px to +30px
-
-          return (
-            <span
-              key={word.startTime ?? index}
-              className={`inline-block text-5xl md:text-7xl font-black transition-all duration-150 ${colorClass} ${glowClass} ${isActive ? 'lyrics-active animate-pop scale-125 brightness-150 z-10' : 'lyrics-passive scale-100 z-0'}`}
-              style={{
-                transform: `rotate(${rotate}deg) translateY(${offsetY}px)`,
-              }}
-            >
-              {word.text}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
 
   return (
     <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-8">
@@ -92,7 +36,7 @@ function UIOverlay() {
       </header>
 
       <main className="grow flex items-center justify-center pointer-events-none z-50">
-        {renderLyrics()}
+        {/* Lyrics are rendered in-world via the R3F Scene (src/components/Lyrics.tsx) */}
       </main>
 
       <footer className="text-gray-400 text-sm">
