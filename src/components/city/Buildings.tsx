@@ -143,13 +143,37 @@ export default function Buildings({
     }, [windowData]);
 
     const litWindows = useRef<Set<number>>(new Set());
+    const litWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
     const targetBuilding = useRef(0);
+    const lastPlaybackPosRef = useRef(0);
+
+    const resetWindows = () => {
+        const mesh = windowsMeshRef.current;
+        if (!mesh) return;
+
+        const black = new THREE.Color("#000000");
+        litWindows.current.clear();
+        litWindowColors.current.clear();
+
+        for (let i = 0; i < windowData.matrices.length; i++) {
+            mesh.setColorAt(i, black);
+        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    };
 
     useFrame((state, delta) => {
-        const pos = isPlaying && player?.video ? player.timer.position : 0;
+        const posRaw = Number(player?.timer?.position ?? 0);
+        const pos = isPlaying && player?.video ? posRaw : 0;
+
+        // Stop した時のみ lights を clear（backward 時は clear しない）
+        if (posRaw <= 0) {
+            resetWindows();
+        }
+        lastPlaybackPosRef.current = posRaw;
+
         if (isPlaying && player?.video) {
             const word = player.video.findWord(pos);
             if (word && word.startTime !== lastWordId.current) {
@@ -167,11 +191,34 @@ export default function Buildings({
                         const rnd = Math.floor(Math.random() * unlit.length);
                         const idx = unlit.splice(rnd, 1)[0];
                         const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
+                        const color = new THREE.Color(colorHex);
                         litWindows.current.add(idx);
-                        mesh.setColorAt(idx, new THREE.Color(colorHex));
+                        litWindowColors.current.set(idx, color);
+                        mesh.setColorAt(idx, color);
                     }
                     if (count > 0 && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
                 }
+            }
+
+            const mesh = windowsMeshRef.current;
+            if (mesh && windowData.matrices.length > 0) {
+                const chorus = !!player.findChorus(pos);
+                const black = new THREE.Color("#000000");
+                
+                for (let i = 0; i < windowData.matrices.length; i++) {
+                    const baseColor = litWindowColors.current.get(i);
+                    if (baseColor) {
+                        let displayColor = baseColor.clone();
+                        if (chorus) {
+                            // サビ中は1.5倍明るくする
+                            displayColor.multiplyScalar(1.5);
+                        }
+                        mesh.setColorAt(i, displayColor);
+                    } else {
+                        mesh.setColorAt(i, black);
+                    }
+                }
+                if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
             }
 
             const phrase = player.video.findPhrase(pos);

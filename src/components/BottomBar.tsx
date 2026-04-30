@@ -8,6 +8,7 @@ export default function BottomBar() {
     const [isSeeking, setIsSeeking] = useState(false);
     const positionPrimedRef = React.useRef(false);
     const wasPlayingRef = React.useRef(false);
+    const isPlayingRef = React.useRef(isPlaying);
 
     const handlePlayToggle = () => {
         if (isPlaying) pause();
@@ -18,6 +19,7 @@ export default function BottomBar() {
     const [posSecState, setPosSecState] = useState<number>(() => 0);
 
     useEffect(() => {
+        isPlayingRef.current = isPlaying;
         if (isPlaying && !wasPlayingRef.current) {
             positionPrimedRef.current = false;
             setPosSecState(0);
@@ -34,9 +36,15 @@ export default function BottomBar() {
             const normalizeTime = (value: number) => (value > 1000 ? value / 1000 : value);
             const pos = normalizeTime(posRaw);
 
+            if (!isPlayingRef.current) {
+                setPosSecState(0);
+                rafId = requestAnimationFrame(loop);
+                return;
+            }
+
             // TextAlive can briefly report a huge stale position right after play starts.
             // Ignore any initial spike until playback settles near the beginning.
-            if (isPlaying && !positionPrimedRef.current && pos > 10) {
+            if (!positionPrimedRef.current && pos > 10) {
                 setPosSecState(0);
                 rafId = requestAnimationFrame(loop);
                 return;
@@ -112,9 +120,10 @@ export default function BottomBar() {
 
     const barWrapper: React.CSSProperties = {
         flex: 1,
-        height: 10,
-        background: "rgba(11,18,32,0.82)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        minWidth: 120,
+        height: 8,
+        background: "rgba(18,28,44,0.92)",
+        border: "1px solid rgba(255,255,255,0.12)",
         borderRadius: 999,
         overflow: "hidden",
         position: "relative",
