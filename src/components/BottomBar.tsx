@@ -191,18 +191,15 @@ export default function BottomBar() {
                     </button>
                 </div>
 
-                <div style={finalProgressContainer}>
-                    <div ref={progressTrackRef} style={barWrapper} onPointerDown={onPointerDown}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+                    <div style={{ color: "#9fb8c6", fontSize: elapsedFont, minWidth: 48, textAlign: "left" }}>{formatTime(posSec)}</div>
+                    <div ref={progressTrackRef} style={{ ...barWrapper, flex: 1, height: 6 }} onPointerDown={onPointerDown}>
                         <div style={barFill} />
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ color: "#9fb8c6", fontSize: elapsedFont, minWidth: 48, textAlign: "left" }}>{formatTime(posSec)}</div>
-                        <div style={{ flex: 1 }} />
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 64, justifyContent: "flex-end" }}>
-                            <div style={{ color: "#bfcbd6", fontSize: remainingFont, textAlign: "right" }}>{`-${formatTime(Math.max(0, durSec - posSec))}`}</div>
-                            <div style={{ width: 10, height: 10, background: isReady ? "#00cc66" : "#ffa500", borderRadius: 10 }} />
-                            <div style={{ color: "#9fb8c6", fontSize: remainingFont }}>{isReady ? "READY" : "LOADING..."}</div>
-                        </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 64, justifyContent: "flex-end" }}>
+                        <div style={{ color: "#bfcbd6", fontSize: remainingFont, textAlign: "right" }}>{`-${formatTime(Math.max(0, durSec - posSec))}`}</div>
+                        <div style={{ width: 10, height: 10, background: isReady ? "#00cc66" : "#ffa500", borderRadius: 10 }} />
+                        <div style={{ color: "#9fb8c6", fontSize: remainingFont }}>{isReady ? "READY" : "LOADING..."}</div>
                     </div>
                 </div>
 

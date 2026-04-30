@@ -85,9 +85,23 @@ function BuildingMeshes({ buildings }: { buildings: Building[] }) {
 }
 
 function Windows({ count, meshRef }: { count: number; meshRef: React.RefObject<THREE.InstancedMesh | null> }) {
+    const geomRef = React.useRef<THREE.PlaneGeometry>(null);
+
+    React.useEffect(() => {
+        if (!geomRef.current) return;
+        // Ensure instanceColor attribute exists on geometry
+        if (!geomRef.current.attributes.color) {
+            const colors = new Float32Array(count * 3);
+            for (let i = 0; i < colors.length; i++) {
+                colors[i] = 0.1; // dim initial color
+            }
+            geomRef.current.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+        }
+    }, [count]);
+
     return (
         <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
-            <planeGeometry args={[1, 1]} />
+            <planeGeometry ref={geomRef} args={[1, 1]} />
             <meshBasicMaterial toneMapped={false} vertexColors />
         </instancedMesh>
     );
@@ -119,73 +133,38 @@ export default function Buildings({
         const mesh = windowsMeshRef.current;
         if (!mesh) return;
         const dim = new THREE.Color("#06111a");
+
         for (let i = 0; i < windowData.matrices.length; i++) {
             mesh.setMatrixAt(i, windowData.matrices[i]);
             mesh.setColorAt(i, dim);
         }
+        mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }, [windowData]);
 
     const pulseStartAt = useRef(0);
-    const chorusPulseStartAt = useRef(0);
-    const lastChorusActive = useRef(false);
+    const lastBuildingPhraseId = useRef<number | null>(null);
     const dimColor = useRef(new THREE.Color("#06111a"));
     const brightColor = useRef(new THREE.Color("#8ffcff"));
-    const lastPhraseId = useRef<number | null>(null);
-    const targetBuilding = useRef(0);
-    const pulseOriginBuilding = useRef(0);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
+    const targetBuilding = useRef(0);
 
     useFrame((state, delta) => {
         const pos = isPlaying && player?.video ? player.timer.position : 0;
         if (isPlaying && player?.video) {
             const phrase = player.video.findPhrase(pos);
-            if (phrase && phrase.startTime !== lastPhraseId.current) {
-                lastPhraseId.current = phrase.startTime;
+            if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
+                lastBuildingPhraseId.current = phrase.startTime;
                 targetBuilding.current = Math.floor(Math.random() * buildings.length);
-                pulseOriginBuilding.current = targetBuilding.current;
                 pulseStartAt.current = performance.now();
             }
-
-            const chorus = !!player.findChorus(pos);
-            if (chorus && !lastChorusActive.current) {
-                chorusPulseStartAt.current = performance.now();
-            }
-            lastChorusActive.current = chorus;
         }
-
+        
         const mesh = windowsMeshRef.current;
         if (mesh) {
-            const now = performance.now();
-            const phraseAge = Math.max(0, now - pulseStartAt.current);
-            const chorusAge = Math.max(0, now - chorusPulseStartAt.current);
-            const pulseRadius = phraseAge / 130;
-            const chorusRadius = chorusAge / 150;
-
+            const baseGlow = 0.2;
             for (let i = 0; i < windowData.positions.length; i++) {
-                const buildingIdx = windowData.buildingIndices[i];
-                const windowPos = windowData.positions[i];
-                const originBuilding = buildings[pulseOriginBuilding.current] ?? buildings[0];
-                const originPos = originBuilding ? new THREE.Vector3(originBuilding.x, 1.2, originBuilding.z) : new THREE.Vector3(0, 1.2, 0);
-                const distance = windowPos.distanceTo(originPos);
-                const wave = Math.max(0, 1 - Math.abs(distance - pulseRadius));
-
-                const chorusOrigin = buildings[targetBuilding.current] ?? originBuilding;
-                const chorusPos = chorusOrigin ? new THREE.Vector3(chorusOrigin.x, 1.2, chorusOrigin.z) : originPos;
-                const chorusDistance = windowPos.distanceTo(chorusPos);
-                const chorusWave = Math.max(0, 1 - Math.abs(chorusDistance - chorusRadius));
-
-                const baseGlow = 0.12;
-                const pulseGlow = wave * 0.7;
-                const chorusGlow = chorusWave * 0.35;
-                const floorGlow = Math.max(0, 1 - windowPos.y / 6) * 0.06;
-                const totalGlow = THREE.MathUtils.clamp(baseGlow + pulseGlow + chorusGlow + floorGlow, 0, 1);
-
-                const targetColor = dimColor.current.clone().lerp(brightColor.current, totalGlow);
-                if (buildingIdx === targetBuilding.current) {
-                    targetColor.lerp(new THREE.Color("#ff6aff"), 0.08);
-                }
-
+                const targetColor = dimColor.current.clone().lerp(brightColor.current, baseGlow);
                 mesh.setColorAt(i, targetColor);
             }
             if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
