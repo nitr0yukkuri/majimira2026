@@ -2,7 +2,7 @@
 
 import { usePlayer, PlayerProvider } from "@/contexts/PlayerContext";
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import React from 'react';
 import BottomBar from '@/components/BottomBar';
 import { IPhrase, IWord } from "textalive-app-api";
@@ -20,20 +20,106 @@ const hash = (str: string) => {
 };
 
 function UIOverlay() {
-  const { player, isPlaying, isReady, play, pause } = usePlayer();
-
-
   return (
     <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-8">
-      <header className="flex justify-between items-center text-white">
-      </header>
-
-      <main className="grow flex items-center justify-center pointer-events-none z-50">
-        {/* Lyrics are rendered in-world via the R3F Scene (src/components/Lyrics.tsx) */}
-      </main>
-
-      <footer className="text-gray-400 text-sm" />
+      <BottomLyricsBand />
       <BottomBar />
+    </div>
+  );
+}
+
+function BottomLyricsBand() {
+  const { player, isPlaying } = usePlayer();
+  const [phraseText, setPhraseText] = useState("");
+  const [isVisible, setIsVisible] = useState(false);
+  const lastPhraseStartRef = useRef<number | null>(null);
+  const phraseTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (phraseTimerRef.current !== null) {
+      window.clearTimeout(phraseTimerRef.current);
+      phraseTimerRef.current = null;
+    }
+
+    if (!player || !isPlaying) {
+      lastPhraseStartRef.current = null;
+      setPhraseText("");
+      setIsVisible(false);
+      return;
+    }
+
+    let frameId = 0;
+    const tick = () => {
+      if (!player.video || !isPlaying) {
+        lastPhraseStartRef.current = null;
+        setPhraseText("");
+        setIsVisible(false);
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const pos = player.timer.position;
+      const phrase = player.video.findPhrase(pos) || player.video.firstPhrase || null;
+
+      if ((phrase?.startTime ?? null) !== lastPhraseStartRef.current) {
+        lastPhraseStartRef.current = phrase?.startTime ?? null;
+        setIsVisible(false);
+        phraseTimerRef.current = window.setTimeout(() => {
+          setPhraseText(phrase?.text ?? "");
+          requestAnimationFrame(() => setIsVisible(true));
+        }, 120);
+      }
+
+      frameId = requestAnimationFrame(tick);
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frameId);
+      if (phraseTimerRef.current !== null) {
+        window.clearTimeout(phraseTimerRef.current);
+        phraseTimerRef.current = null;
+      }
+    };
+  }, [player, isPlaying]);
+
+  const bandStyle: React.CSSProperties = {
+    position: "absolute",
+    left: "50%",
+    transform: "translateX(-50%)",
+    bottom: 110,
+    width: "min(860px, calc(100% - 48px))",
+    pointerEvents: "none",
+    zIndex: 65,
+  };
+
+  const panelStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50,
+    padding: "10px 16px",
+    borderRadius: 16,
+    background: "rgba(8,10,12,0.28)",
+    border: "1px solid rgba(255,255,255,0.045)",
+    backdropFilter: "blur(8px)",
+    color: "#ffffff",
+    textAlign: "center",
+    fontSize: "clamp(16px, 1.9vw, 24px)",
+    lineHeight: 1.2,
+    letterSpacing: "0.03em",
+    textShadow: "0 0 10px rgba(0,255,240,0.18)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? "translateY(0)" : "translateY(6px)",
+    transition: "opacity 220ms ease, transform 220ms ease",
+  };
+
+  return (
+    <div style={bandStyle}>
+      <div style={panelStyle}>{phraseText || " "}</div>
     </div>
   );
 }
