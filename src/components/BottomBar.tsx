@@ -90,10 +90,13 @@ export default function BottomBar() {
         ...panelStyle,
         padding: isSmall ? "8px 10px" : "10px 14px",
         gap: isSmall ? 8 : 12,
+        alignItems: "center",
     };
 
     const playBtnSize = isSmall ? 36 : 44;
-    const ctrlBtnSize = isSmall ? 28 : 34;
+    // unify control sizes
+    const ctrlBtnSize = playBtnSize;
+    const controlFontSize = isSmall ? 14 : 18;
 
     const finalProgressContainer: React.CSSProperties = {
         ...progressContainer,
@@ -105,15 +108,12 @@ export default function BottomBar() {
 
     return (
         <div style={containerStyle}>
-            <div style={panelStyle}>
+            <div style={finalPanelStyle}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <button aria-label="seek-back" style={{ width: ctrlBtnSize, height: ctrlBtnSize, display: "grid", placeItems: "center", background: "#111", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 8, color: "#0ff", fontSize: isSmall ? 12 : 16 }}>
-                        ⏮
-                    </button>
-                    <button aria-label="play-toggle" onClick={handlePlayToggle} disabled={!isReady} style={{ width: playBtnSize, height: playBtnSize, display: "grid", placeItems: "center", background: isPlaying ? "#0a2230" : "#022", border: "1px solid rgba(0,255,204,0.12)", borderRadius: 12, color: "#0ff", fontSize: isSmall ? 14 : 18 }}>
+                    <button aria-label="play-toggle" onClick={handlePlayToggle} disabled={!isReady} style={{ width: playBtnSize, height: playBtnSize, display: "grid", placeItems: "center", background: isPlaying ? "#0a2230" : "#022", border: "1px solid rgba(0,255,204,0.12)", borderRadius: 12, color: "#0ff", fontSize: controlFontSize }}>
                         {isPlaying ? "❚❚" : "▶"}
                     </button>
-                    <button aria-label="stop" onClick={() => stop()} style={{ width: ctrlBtnSize, height: ctrlBtnSize, display: "grid", placeItems: "center", background: "#111", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 8, color: "#f0f", fontSize: isSmall ? 12 : 16 }}>
+                    <button aria-label="stop" onClick={() => stop()} style={{ width: ctrlBtnSize, height: ctrlBtnSize, display: "grid", placeItems: "center", background: "#111", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, color: "#f0f", fontSize: controlFontSize }}>
                         ◼
                     </button>
                 </div>
@@ -125,14 +125,14 @@ export default function BottomBar() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ color: "#9fb8c6", fontSize: elapsedFont, minWidth: 48, textAlign: "left" }}>{formatTime(posSec)}</div>
                         <div style={{ flex: 1 }} />
-                        <div style={{ color: "#bfcbd6", fontSize: remainingFont, textAlign: "right", minWidth: 64 }}>{`-${formatTime(Math.max(0, durSec - posSec))}`}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 64, justifyContent: "flex-end" }}>
+                            <div style={{ color: "#bfcbd6", fontSize: remainingFont, textAlign: "right" }}>{`-${formatTime(Math.max(0, durSec - posSec))}`}</div>
+                            <div style={{ width: 10, height: 10, background: isReady ? "#00cc66" : "#ffa500", borderRadius: 10 }} />
+                            <div style={{ color: "#9fb8c6", fontSize: remainingFont }}>{isReady ? "READY" : "LOADING..."}</div>
+                        </div>
                     </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 10, height: 10, background: isReady ? "#00cc66" : "#ffa500", borderRadius: 10 }} />
-                    <div style={{ color: "#9fb8c6", fontSize: 12 }}>{isReady ? "READY" : "LOADING..."}</div>
-                </div>
             </div>
         </div>
     );
