@@ -111,10 +111,27 @@ export default function BottomBar() {
             <div style={finalPanelStyle}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button aria-label="play-toggle" onClick={handlePlayToggle} disabled={!isReady} style={{ width: playBtnSize, height: playBtnSize, display: "grid", placeItems: "center", background: isPlaying ? "#0a2230" : "#022", border: "1px solid rgba(0,255,204,0.12)", borderRadius: 12, color: "#0ff", fontSize: controlFontSize }}>
-                        {isPlaying ? "❚❚" : "▶"}
+                        {isPlaying ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={isSmall ? 16 : 18} height={isSmall ? 16 : 18} aria-hidden="true" focusable="false">
+                                <g fill="#00fff0">
+                                    <rect x="6" y="5" width="3" height="14" rx="0.5" />
+                                    <rect x="15" y="5" width="3" height="14" rx="0.5" />
+                                </g>
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={isSmall ? 16 : 18} height={isSmall ? 16 : 18} aria-hidden="true" focusable="false">
+                                <g fill="#00fff0">
+                                    <path d="M8 5v14l11-7z" />
+                                </g>
+                            </svg>
+                        )}
                     </button>
                     <button aria-label="stop" onClick={() => stop()} style={{ width: ctrlBtnSize, height: ctrlBtnSize, display: "grid", placeItems: "center", background: "#111", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, color: "#f0f", fontSize: controlFontSize }}>
-                        ◼
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={isSmall ? 16 : 18} height={isSmall ? 16 : 18} aria-hidden="true" focusable="false">
+                            <g fill="#ff6aff">
+                                <rect x="6" y="6" width="12" height="12" rx="1.5" />
+                            </g>
+                        </svg>
                     </button>
                 </div>
 
