@@ -111,18 +111,28 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
 }
 
 export default function Lyrics() {
-    const { player } = usePlayer();
+    const { player, isPlaying } = usePlayer();
     const [currentPhrase, setCurrentPhrase] = useState<IPhrase | null>(null);
     const [activeWordStartTime, setActiveWordStartTime] = useState<number | null>(null);
     const lastPhraseId = useRef<number | null>(null);
     const lastWordId = useRef<number | null>(null);
 
     useEffect(() => {
-        if (!player) return;
+        if (!player || !isPlaying) {
+            lastPhraseId.current = null;
+            lastWordId.current = null;
+            setCurrentPhrase(null);
+            setActiveWordStartTime(null);
+            return;
+        }
 
         let frameId = 0;
         const tick = () => {
-            if (!player.video) {
+            if (!player.video || !isPlaying) {
+                lastPhraseId.current = null;
+                lastWordId.current = null;
+                setCurrentPhrase(null);
+                setActiveWordStartTime(null);
                 frameId = requestAnimationFrame(tick);
                 return;
             }
@@ -146,7 +156,7 @@ export default function Lyrics() {
 
         frameId = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(frameId);
-    }, [player]);
+    }, [player, isPlaying]);
 
     const currentWords = useMemo(() => (currentPhrase?.children || []) as IWord[], [currentPhrase]);
 
