@@ -9,6 +9,7 @@ interface PlayerContextType {
     isReady: boolean;
     play: () => void;
     pause: () => void;
+    stop: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -40,7 +41,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         if (playerRef.current) return;
 
         const mediaEl = document.querySelector("#media");
-        
+
         const newPlayer = new Player({
             app: {
                 appAuthor: "NeoCity Awaken",
@@ -82,9 +83,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     const play = () => player?.requestPlay();
     const pause = () => player?.requestPause();
+    const stop = () => player?.requestStop();
 
     return (
-        <PlayerContext.Provider value={{ player, isPlaying, isReady, play, pause }}>
+        <PlayerContext.Provider value={{ player, isPlaying, isReady, play, pause, stop }}>
             {children}
             <div id="media" className="hidden"></div>
         </PlayerContext.Provider>

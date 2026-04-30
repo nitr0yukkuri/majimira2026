@@ -4,6 +4,7 @@ import { usePlayer, PlayerProvider } from "@/contexts/PlayerContext";
 import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import React from 'react';
+import BottomBar from '@/components/BottomBar';
 import { IPhrase, IWord } from "textalive-app-api";
 
 // Disable SSR for 3D component and APIs using browser globals
@@ -39,6 +40,7 @@ function UIOverlay() {
       </main>
 
       <footer className="text-gray-400 text-sm" />
+      <BottomBar />
     </div>
   );
 }
