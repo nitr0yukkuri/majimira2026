@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import * as THREE from "three";
 import { usePlayer } from "@/contexts/PlayerContext";
+import { NEON_HEX } from "@/constants/neon";
 import type { Building } from "@/types/city";
 
 const GRID_RANGE = 5;
@@ -35,14 +36,12 @@ interface WindowData {
     matrices: THREE.Matrix4[];
     buildingIndices: number[];
     positions: THREE.Vector3[];
-    colors: THREE.Color[];
 }
 
 function generateWindowData(buildings: Building[]): WindowData {
     const matrices: THREE.Matrix4[] = [];
     const buildingIndices: number[] = [];
     const positions: THREE.Vector3[] = [];
-    const colors: THREE.Color[] = [];
 
     const addWindow = (px: number, py: number, pz: number, ry: number, bIdx: number) => {
         const matrix = new THREE.Matrix4().compose(
@@ -53,11 +52,6 @@ function generateWindowData(buildings: Building[]): WindowData {
         matrices.push(matrix);
         buildingIndices.push(bIdx);
         positions.push(new THREE.Vector3(px, py, pz));
-
-        // Generate darker, more subtle cyan-ish color for window
-        const hue = Math.random() * 0.2 + 0.45; // narrow cyan range
-        const col = new THREE.Color().setHSL(hue, 0.5, 0.35); // darker, less vibrant
-        colors.push(col);
     };
 
     buildings.forEach((b, bIdx) => {
@@ -74,7 +68,7 @@ function generateWindowData(buildings: Building[]): WindowData {
         }
     });
 
-    return { matrices, buildingIndices, positions, colors };
+    return { matrices, buildingIndices, positions };
 }
 
 function BuildingMeshes({ buildings }: { buildings: Building[] }) {
@@ -138,46 +132,65 @@ export default function Buildings({
     useEffect(() => {
         const mesh = windowsMeshRef.current;
         if (!mesh) return;
+        const black = new THREE.Color("#000000");
 
         for (let i = 0; i < windowData.matrices.length; i++) {
             mesh.setMatrixAt(i, windowData.matrices[i]);
-            mesh.setColorAt(i, windowData.colors[i]);
+            mesh.setColorAt(i, black);
         }
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }, [windowData]);
 
+    const litWindows = useRef<Set<number>>(new Set());
+    const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
     const targetBuilding = useRef(0);
-    const windowFadeSeeds = useMemo(() => {
-        // Generate random fade offset for each window (0-1)
-        return Array(windowData.colors.length).fill(0).map(() => Math.random());
-    }, [windowData.colors.length]);
 
     useFrame((state, delta) => {
         const pos = isPlaying && player?.video ? player.timer.position : 0;
         if (isPlaying && player?.video) {
+            const word = player.video.findWord(pos);
+            if (word && word.startTime !== lastWordId.current) {
+                lastWordId.current = word.startTime;
+
+                const mesh = windowsMeshRef.current;
+                if (mesh) {
+                    const unlit: number[] = [];
+                    for (let i = 0; i < windowData.buildingIndices.length; i++) {
+                        if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
+                    }
+
+                    const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
+                    for (let c = 0; c < count; c++) {
+                        const rnd = Math.floor(Math.random() * unlit.length);
+                        const idx = unlit.splice(rnd, 1)[0];
+                        const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
+                        litWindows.current.add(idx);
+                        mesh.setColorAt(idx, new THREE.Color(colorHex));
+                    }
+                    if (count > 0 && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+                }
+            }
+
             const phrase = player.video.findPhrase(pos);
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
                 targetBuilding.current = Math.floor(Math.random() * buildings.length);
-            }
-        }
 
-        // Update window colors with fade effect
-        const mesh = windowsMeshRef.current;
-        if (mesh) {
-            const now = performance.now() / 1000; // seconds
-            for (let i = 0; i < windowData.colors.length; i++) {
-                const seed = windowFadeSeeds[i];
-                const phase = now * 2 + seed * Math.PI * 2;
-                const fadeFactor = 0.3 + Math.sin(phase) * 0.35; // 0.05 ~ 0.65 range
-                const baseColor = windowData.colors[i];
-                const fadedColor = baseColor.clone().multiplyScalar(fadeFactor);
-                mesh.setColorAt(i, fadedColor);
+                litWindows.current.clear();
+                const mesh = windowsMeshRef.current;
+                if (mesh) {
+                    const black = new THREE.Color("#000000");
+                    for (let i = 0; i < windowData.matrices.length; i++) {
+                        if (windowData.buildingIndices[i] === targetBuilding.current) {
+                            mesh.setColorAt(i, black);
+                        }
+                    }
+                    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+                }
             }
-            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         }
 
         if (!testMode) {

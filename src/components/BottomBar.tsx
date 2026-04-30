@@ -12,18 +12,13 @@ export default function BottomBar() {
         else play();
     };
 
-    // position/duration normalized to seconds
-    const [posSecState, setPosSecState] = useState<number>(() => {
-        const pr = Number(player?.timer?.position ?? 0);
-        return pr > 1000 ? pr / 1000 : pr;
-    });
+    // position/duration are used directly from the player
+    const [posSecState, setPosSecState] = useState<number>(() => Number(player?.timer?.position ?? 0));
 
     useEffect(() => {
         let rafId: number | null = null;
         const loop = () => {
-            const pr = Number(player?.timer?.position ?? 0);
-            const ps = pr > 1000 ? pr / 1000 : pr;
-            setPosSecState(ps);
+            setPosSecState(Number(player?.timer?.position ?? 0));
             rafId = requestAnimationFrame(loop);
         };
 
@@ -39,7 +34,7 @@ export default function BottomBar() {
 
     const posSec = posSecState;
     const durRaw = Number(player?.video?.duration ?? 0);
-    const durSec = durRaw > 1000 ? durRaw / 1000 : durRaw;
+    const durSec = durRaw;
     const percent = durSec > 0 ? Math.max(0, Math.min(100, (posSec / durSec) * 100)) : 0;
 
     const formatTime = (s: number) => {
