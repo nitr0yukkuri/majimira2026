@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Edges, MeshReflectorMaterial } from "@react-three/drei";
+import { Edges } from "@react-three/drei";
 import * as THREE from "three";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { NEON_COLORS_THREE } from "@/constants/neon";
@@ -95,7 +95,7 @@ function GroundPlane() {
     return (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
             <planeGeometry args={[100, 100]} />
-            <MeshReflectorMaterial color="#020813" roughness={0.4} blur={[300, 100]} mixStrength={0.5} mixContrast={1} />
+            <meshStandardMaterial color="#020813" roughness={0.45} metalness={0.05} />
         </mesh>
     );
 }

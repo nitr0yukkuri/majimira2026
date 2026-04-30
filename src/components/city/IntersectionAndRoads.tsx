@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { MeshReflectorMaterial } from "@react-three/drei";
 
 // ─── Sub-components ───────────────────────────────────────────────────
 
@@ -9,19 +8,7 @@ function ReflectiveRoad({ width, depth, y }: { width: number; depth: number; y: 
     return (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, y, 0]}>
             <planeGeometry args={[width, depth]} />
-            <MeshReflectorMaterial
-                color="#001122"
-                roughness={0.15}
-                metalness={0.9}
-                mirror={0.85}
-                blur={[300, 100]}
-                resolution={512}
-                mixBlur={0.8}
-                mixStrength={1.5}
-                depthScale={1.2}
-                minDepthThreshold={0.4}
-                maxDepthThreshold={1.4}
-            />
+            <meshStandardMaterial color="#001122" roughness={0.18} metalness={0.85} />
         </mesh>
     );
 }
@@ -128,12 +115,12 @@ function StopLinesAndArrows() {
 
             {/* Turn Arrows (one per approach) */}
             {[
-                { pos: [-0.875, 0, 4],   rot: [0, 0,           0] as [number, number, number] },
-                { pos: [0.875,  0, -4],  rot: [0, Math.PI,      0] as [number, number, number] },
-                { pos: [-4,     0, 0.875], rot: [0, -Math.PI/2,  0] as [number, number, number] },
-                { pos: [4,      0, -0.875], rot: [0, Math.PI/2,  0] as [number, number, number] },
+                { pos: [-0.875, 0, 4], rot: [0, 0, 0] as [number, number, number] },
+                { pos: [0.875, 0, -4], rot: [0, Math.PI, 0] as [number, number, number] },
+                { pos: [-4, 0, 0.875], rot: [0, -Math.PI / 2, 0] as [number, number, number] },
+                { pos: [4, 0, -0.875], rot: [0, Math.PI / 2, 0] as [number, number, number] },
             ].map(({ pos, rot }, i) => (
-                <group key={i} position={pos as [number,number,number]} rotation={rot}>
+                <group key={i} position={pos as [number, number, number]} rotation={rot}>
                     <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                         <planeGeometry args={[0.1, 1.5]} />
                         <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
@@ -187,7 +174,7 @@ export default function IntersectionAndRoads() {
         <group>
             {/* Wet reflective road surfaces */}
             <ReflectiveRoad width={100} depth={3.5} y={-0.05} />
-            <ReflectiveRoad width={3.5}  depth={100} y={-0.04} />
+            <ReflectiveRoad width={3.5} depth={100} y={-0.04} />
 
             <NSCrosswalks />
             <EWCrosswalks />

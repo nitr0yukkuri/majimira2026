@@ -8,9 +8,9 @@
  * All city-specific logic lives under components/city/.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import CityScene from "@/components/city/CityScene";
 
@@ -46,9 +46,10 @@ export default function Scene() {
             <color attach="background" args={["#000000"]} />
             <PerspectiveCamera makeDefault position={[0, 5, 10]} fov={60} />
             <OrbitControls makeDefault enabled={testMode} />
-            <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
-            <CityScene testMode={testMode} />
+            <Suspense fallback={null}>
+                <CityScene testMode={testMode} />
+            </Suspense>
 
         </Canvas>
     );
