@@ -178,18 +178,6 @@ export default function Buildings({
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
                 targetBuilding.current = Math.floor(Math.random() * buildings.length);
-
-                litWindows.current.clear();
-                const mesh = windowsMeshRef.current;
-                if (mesh) {
-                    const black = new THREE.Color("#000000");
-                    for (let i = 0; i < windowData.matrices.length; i++) {
-                        if (windowData.buildingIndices[i] === targetBuilding.current) {
-                            mesh.setColorAt(i, black);
-                        }
-                    }
-                    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-                }
             }
         }
 

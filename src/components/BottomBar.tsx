@@ -6,19 +6,44 @@ import { usePlayer } from "@/contexts/PlayerContext";
 export default function BottomBar() {
     const { player, isPlaying, isReady, play, pause, stop, seek } = usePlayer();
     const [isSeeking, setIsSeeking] = useState(false);
+    const positionPrimedRef = React.useRef(false);
+    const wasPlayingRef = React.useRef(false);
 
     const handlePlayToggle = () => {
         if (isPlaying) pause();
         else play();
     };
 
-    // position/duration are used directly from the player
-    const [posSecState, setPosSecState] = useState<number>(() => Number(player?.timer?.position ?? 0));
+    // position/duration are reported in milliseconds by TextAlive
+    const [posSecState, setPosSecState] = useState<number>(() => 0);
+
+    useEffect(() => {
+        if (isPlaying && !wasPlayingRef.current) {
+            positionPrimedRef.current = false;
+            setPosSecState(0);
+        }
+        wasPlayingRef.current = isPlaying;
+    }, [isPlaying]);
 
     useEffect(() => {
         let rafId: number | null = null;
         const loop = () => {
-            setPosSecState(Number(player?.timer?.position ?? 0));
+            const posRaw = Number(player?.timer?.position ?? 0);
+            const durRaw = Number(player?.video?.duration ?? 0);
+
+            const normalizeTime = (value: number) => (value > 1000 ? value / 1000 : value);
+            const pos = normalizeTime(posRaw);
+
+            // TextAlive can briefly report a huge stale position right after play starts.
+            // Ignore any initial spike until playback settles near the beginning.
+            if (isPlaying && !positionPrimedRef.current && pos > 10) {
+                setPosSecState(0);
+                rafId = requestAnimationFrame(loop);
+                return;
+            }
+
+            if (pos > 0) positionPrimedRef.current = true;
+            setPosSecState(pos);
             rafId = requestAnimationFrame(loop);
         };
 
@@ -34,7 +59,7 @@ export default function BottomBar() {
 
     const posSec = posSecState;
     const durRaw = Number(player?.video?.duration ?? 0);
-    const durSec = durRaw;
+    const durSec = durRaw > 1000 ? durRaw / 1000 : durRaw;
     const percent = durSec > 0 ? Math.max(0, Math.min(100, (posSec / durSec) * 100)) : 0;
 
     const formatTime = (s: number) => {
