@@ -35,12 +35,14 @@ interface WindowData {
     matrices: THREE.Matrix4[];
     buildingIndices: number[];
     positions: THREE.Vector3[];
+    colors: THREE.Color[];
 }
 
 function generateWindowData(buildings: Building[]): WindowData {
     const matrices: THREE.Matrix4[] = [];
     const buildingIndices: number[] = [];
     const positions: THREE.Vector3[] = [];
+    const colors: THREE.Color[] = [];
 
     const addWindow = (px: number, py: number, pz: number, ry: number, bIdx: number) => {
         const matrix = new THREE.Matrix4().compose(
@@ -51,6 +53,11 @@ function generateWindowData(buildings: Building[]): WindowData {
         matrices.push(matrix);
         buildingIndices.push(bIdx);
         positions.push(new THREE.Vector3(px, py, pz));
+
+        // Generate darker, more subtle cyan-ish color for window
+        const hue = Math.random() * 0.2 + 0.45; // narrow cyan range
+        const col = new THREE.Color().setHSL(hue, 0.5, 0.35); // darker, less vibrant
+        colors.push(col);
     };
 
     buildings.forEach((b, bIdx) => {
@@ -67,7 +74,7 @@ function generateWindowData(buildings: Building[]): WindowData {
         }
     });
 
-    return { matrices, buildingIndices, positions };
+    return { matrices, buildingIndices, positions, colors };
 }
 
 function BuildingMeshes({ buildings }: { buildings: Building[] }) {
@@ -89,11 +96,10 @@ function Windows({ count, meshRef }: { count: number; meshRef: React.RefObject<T
 
     React.useEffect(() => {
         if (!geomRef.current) return;
-        // Ensure instanceColor attribute exists on geometry
         if (!geomRef.current.attributes.color) {
             const colors = new Float32Array(count * 3);
             for (let i = 0; i < colors.length; i++) {
-                colors[i] = 0.1; // dim initial color
+                colors[i] = 1;
             }
             geomRef.current.setAttribute("color", new THREE.BufferAttribute(colors, 3));
         }
@@ -132,22 +138,22 @@ export default function Buildings({
     useEffect(() => {
         const mesh = windowsMeshRef.current;
         if (!mesh) return;
-        const dim = new THREE.Color("#06111a");
 
         for (let i = 0; i < windowData.matrices.length; i++) {
             mesh.setMatrixAt(i, windowData.matrices[i]);
-            mesh.setColorAt(i, dim);
+            mesh.setColorAt(i, windowData.colors[i]);
         }
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }, [windowData]);
 
-    const pulseStartAt = useRef(0);
     const lastBuildingPhraseId = useRef<number | null>(null);
-    const dimColor = useRef(new THREE.Color("#06111a"));
-    const brightColor = useRef(new THREE.Color("#8ffcff"));
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
     const targetBuilding = useRef(0);
+    const windowFadeSeeds = useMemo(() => {
+        // Generate random fade offset for each window (0-1)
+        return Array(windowData.colors.length).fill(0).map(() => Math.random());
+    }, [windowData.colors.length]);
 
     useFrame((state, delta) => {
         const pos = isPlaying && player?.video ? player.timer.position : 0;
@@ -156,16 +162,20 @@ export default function Buildings({
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
                 targetBuilding.current = Math.floor(Math.random() * buildings.length);
-                pulseStartAt.current = performance.now();
             }
         }
-        
+
+        // Update window colors with fade effect
         const mesh = windowsMeshRef.current;
         if (mesh) {
-            const baseGlow = 0.2;
-            for (let i = 0; i < windowData.positions.length; i++) {
-                const targetColor = dimColor.current.clone().lerp(brightColor.current, baseGlow);
-                mesh.setColorAt(i, targetColor);
+            const now = performance.now() / 1000; // seconds
+            for (let i = 0; i < windowData.colors.length; i++) {
+                const seed = windowFadeSeeds[i];
+                const phase = now * 2 + seed * Math.PI * 2;
+                const fadeFactor = 0.3 + Math.sin(phase) * 0.35; // 0.05 ~ 0.65 range
+                const baseColor = windowData.colors[i];
+                const fadedColor = baseColor.clone().multiplyScalar(fadeFactor);
+                mesh.setColorAt(i, fadedColor);
             }
             if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         }
