@@ -77,7 +77,7 @@ body {
 	line-height: var(--leading);
 	letter-spacing: var(--letter-spacing);
 	color: rgb(17 24 39); /* Tailwind's slate-900 equivalent */
-	background-color: #fff;
+	background-color: #000;
 }
 
 /* 見出しの整え（シンプルな階層スケール） */

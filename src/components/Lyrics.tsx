@@ -16,6 +16,7 @@ const hash = (str: string) => {
 function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; index: number }) {
     const ref = useRef<any>(null);
     const { camera } = useThree();
+    const { player } = usePlayer();
 
     // base position seeded by word text/time
     const base = useMemo(() => {
@@ -33,6 +34,21 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
     useFrame((state, delta) => {
         if (!ref.current) return;
         const t = state.clock.getElapsedTime();
+        const pos = player?.timer.position ?? 0;
+
+        let beatPulse = 0;
+        if (player) {
+            const beat = player.findBeat(pos);
+            if (beat) {
+                let beatProgress = (pos - beat.startTime) / beat.duration;
+                if (beatProgress < 0) beatProgress = 0;
+                if (beatProgress > 1) beatProgress = 1;
+                beatPulse = Math.pow(1 - beatProgress, 3);
+            }
+        }
+
+        const chorusBoost = player?.findChorus(pos) ? 1 : 0;
+        const lightEnergy = THREE.MathUtils.clamp(0.12 + beatPulse * 0.78 + chorusBoost * 0.28, 0, 1.2);
 
         const forward = new THREE.Vector3();
         camera.getWorldDirection(forward);
@@ -41,12 +57,12 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
 
         const center = new THREE.Vector3()
             .copy(camera.position)
-            .addScaledVector(forward, 4.5)
-            .addScaledVector(up, 1.4);
+            .addScaledVector(forward, 4.1 + lightEnergy * 1.3)
+            .addScaledVector(up, 1.15 + lightEnergy * 0.55);
 
-        const spread = (index - 0.5) * 1.1;
-        const floatY = Math.sin(t * 1.2 + index) * 0.08 + (isActive ? 0.14 : 0);
-        const sway = Math.sin(t * 0.7 + index) * 0.03;
+        const spread = (index - 0.5) * (1.05 + lightEnergy * 0.25);
+        const floatY = Math.sin(t * 1.2 + index) * (0.03 + lightEnergy * 0.05) + (isActive ? 0.08 + lightEnergy * 0.07 : 0);
+        const sway = Math.sin(t * 0.7 + index) * (0.015 + lightEnergy * 0.02);
 
         const targetPosition = center
             .addScaledVector(right, spread + sway)
@@ -64,14 +80,12 @@ function LyricWord({ word, isActive, index }: { word: IWord; isActive: boolean; 
         ref.current.lookAt(camera.position);
 
         // scale/interpolation for active
-        const targetScale = isActive ? 1.2 : 0.85;
+        const targetScale = (isActive ? 1.08 : 0.84) + lightEnergy * (isActive ? 0.24 : 0.12);
         smoothedScale.current = THREE.MathUtils.damp(smoothedScale.current, targetScale, 10, delta);
         ref.current.scale.setScalar(smoothedScale.current);
     });
 
-    // color/emissive based on active
     const color = isActive ? new THREE.Color("#ffffff") : new THREE.Color("#cfefff");
-    const emissive = isActive ? new THREE.Color("#00fff0") : new THREE.Color("#002233");
 
     return (
         <group ref={ref}>
@@ -153,7 +167,19 @@ export default function Lyrics() {
                 const seedB = hash((next.startTime ?? (i + 1)).toString() + next.text);
                 const b = new THREE.Vector3((seedB % 200) / 200 * 8 - 4, 1 + ((seedB >> 6) % 30) / 30, ((seedB >> 3) % 200) / 200 * 8 - 4);
 
-                return <Line key={`line-${i}`} points={[a, b]} color={w.startTime === activeWordStartTime ? "#00fff0" : "#004466"} lineWidth={2} transparent opacity={0.8} />;
+                const pos = player?.timer.position ?? 0;
+                const beat = player?.findBeat(pos);
+                let beatPulse = 0;
+                if (beat) {
+                    let beatProgress = (pos - beat.startTime) / beat.duration;
+                    if (beatProgress < 0) beatProgress = 0;
+                    if (beatProgress > 1) beatProgress = 1;
+                    beatPulse = Math.pow(1 - beatProgress, 3);
+                }
+                const chorusBoost = player?.findChorus(pos) ? 1 : 0;
+                const lightEnergy = THREE.MathUtils.clamp(0.12 + beatPulse * 0.78 + chorusBoost * 0.28, 0, 1.2);
+
+                return <Line key={`line-${i}`} points={[a, b]} color={w.startTime === activeWordStartTime ? "#00fff0" : "#004466"} lineWidth={2} transparent opacity={0.25 + lightEnergy * 0.55} />;
             })}
         </group>
     );

@@ -18,3 +18,4 @@ export interface Trail {
     color: string;
     length: number;
 }
+

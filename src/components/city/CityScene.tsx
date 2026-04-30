@@ -25,7 +25,6 @@ export default function CityScene({ testMode }: { testMode: boolean }) {
             <ambientLight intensity={isPlaying ? 1 : 0.2} />
             <directionalLight position={[10, 10, 5]} intensity={1} />
 
-            {/* City elements — each file owns exactly one responsibility */}
             <IntersectionAndRoads />
             <LightTrails />
             <TrafficLights />
