@@ -59,13 +59,21 @@ function BottomLyricsBand() {
       }
 
       const pos = player.timer.position;
-      const phrase = player.video.findPhrase(pos) || player.video.firstPhrase || null;
+      const phrase = player.video.findPhrase(pos) || null;
 
-      if ((phrase?.startTime ?? null) !== lastPhraseStartRef.current) {
-        lastPhraseStartRef.current = phrase?.startTime ?? null;
+      if (!phrase) {
+        lastPhraseStartRef.current = null;
+        setPhraseText("");
+        setIsVisible(false);
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      if (phrase.startTime !== lastPhraseStartRef.current) {
+        lastPhraseStartRef.current = phrase.startTime;
         setIsVisible(false);
         phraseTimerRef.current = window.setTimeout(() => {
-          setPhraseText(phrase?.text ?? "");
+          setPhraseText(phrase.text ?? "");
           requestAnimationFrame(() => setIsVisible(true));
         }, 120);
       }

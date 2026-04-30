@@ -10,6 +10,7 @@ interface PlayerContextType {
     play: () => void;
     pause: () => void;
     stop: () => void;
+    seek: (position: number) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -84,9 +85,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const play = () => player?.requestPlay();
     const pause = () => player?.requestPause();
     const stop = () => player?.requestStop();
+    const seek = (position: number) => player?.requestMediaSeek(position);
 
     return (
-        <PlayerContext.Provider value={{ player, isPlaying, isReady, play, pause, stop }}>
+        <PlayerContext.Provider value={{ player, isPlaying, isReady, play, pause, stop, seek }}>
             {children}
             <div id="media" className="hidden"></div>
         </PlayerContext.Provider>

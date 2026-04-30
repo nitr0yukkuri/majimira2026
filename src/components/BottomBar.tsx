@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { usePlayer } from "@/contexts/PlayerContext";
 
 export default function BottomBar() {
-    const { player, isPlaying, isReady, play, pause, stop } = usePlayer();
+    const { player, isPlaying, isReady, play, pause, stop, seek } = usePlayer();
+    const [isSeeking, setIsSeeking] = useState(false);
 
     const handlePlayToggle = () => {
         if (isPlaying) pause();
@@ -22,6 +23,16 @@ export default function BottomBar() {
         const mm = Math.floor(s / 60);
         const ss = Math.floor(s % 60).toString().padStart(2, "0");
         return `${mm}:${ss}`;
+    };
+
+    const seekFromClientX = (clientX: number) => {
+        if (!player?.video) return;
+        const rect = progressTrackRef.current?.getBoundingClientRect();
+        if (!rect || rect.width <= 0) return;
+
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const target = durRaw > 1000 ? durRaw * ratio : durRaw * ratio;
+        seek(target);
     };
 
     const containerStyle: React.CSSProperties = {
@@ -54,20 +65,24 @@ export default function BottomBar() {
         gap: 6,
     };
 
+    const progressTrackRef = React.useRef<HTMLDivElement | null>(null);
+
     const barWrapper: React.CSSProperties = {
         flex: 1,
-        height: 8,
-        background: "#0b1220",
-        borderRadius: 8,
+        height: 10,
+        background: "rgba(11,18,32,0.82)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 999,
         overflow: "hidden",
         position: "relative",
+        cursor: "pointer",
     };
 
     const barFill: React.CSSProperties = {
         width: `${percent}%`,
         height: "100%",
         background: "linear-gradient(90deg,#00fff0,#ff6aff)",
-        transition: "width 0.12s linear",
+        transition: isSeeking ? "none" : "width 0.12s linear",
     };
 
     // Responsive handling (no external CSS changes) — adapt sizes based on window width
@@ -106,6 +121,24 @@ export default function BottomBar() {
     const elapsedFont = isSmall ? 11 : 12;
     const remainingFont = isSmall ? 12 : 13;
 
+    const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!player?.video) return;
+        setIsSeeking(true);
+        seekFromClientX(event.clientX);
+
+        const onMove = (moveEvent: PointerEvent) => seekFromClientX(moveEvent.clientX);
+        const onUp = () => {
+            setIsSeeking(false);
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            window.removeEventListener("pointercancel", onUp);
+        };
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+        window.addEventListener("pointercancel", onUp);
+    };
+
     return (
         <div style={containerStyle}>
             <div style={finalPanelStyle}>
@@ -136,7 +169,7 @@ export default function BottomBar() {
                 </div>
 
                 <div style={finalProgressContainer}>
-                    <div style={barWrapper}>
+                    <div ref={progressTrackRef} style={barWrapper} onPointerDown={onPointerDown}>
                         <div style={barFill} />
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

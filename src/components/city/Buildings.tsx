@@ -86,7 +86,7 @@ function Windows({ count, meshRef }: { count: number; meshRef: React.RefObject<T
     return (
         <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
             <planeGeometry args={[1, 1]} />
-            <meshBasicMaterial toneMapped={false} />
+            <meshBasicMaterial toneMapped={false} vertexColors />
         </instancedMesh>
     );
 }
