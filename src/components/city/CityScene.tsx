@@ -1,12 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useState } from "react";
 import { usePlayer } from "@/contexts/PlayerContext";
 import IntersectionAndRoads from "./IntersectionAndRoads";
 import LightTrails from "./LightTrails";
 import TrafficLights from "./TrafficLights";
 import Buildings from "./Buildings";
 import Lyrics from "@/components/Lyrics";
+
+interface SyncCue {
+    color: string;
+    worldX: number;
+    worldZ: number;
+    at: number;
+}
 
 /**
  * CityScene is the top-level aggregator for all 3D city elements.
@@ -18,6 +25,11 @@ import Lyrics from "@/components/Lyrics";
  */
 export default function CityScene({ testMode }: { testMode: boolean }) {
     const { isPlaying } = usePlayer();
+    const [syncCue, setSyncCue] = useState<SyncCue | null>(null);
+
+    const onSyncEvent = useCallback((event: { color: string; worldX: number; worldZ: number }) => {
+        setSyncCue({ ...event, at: performance.now() });
+    }, []);
 
     return (
         <>
@@ -27,9 +39,9 @@ export default function CityScene({ testMode }: { testMode: boolean }) {
 
             <IntersectionAndRoads />
             <LightTrails />
-            <TrafficLights />
-            <Buildings testMode={testMode} />
-            <Lyrics />
+            <TrafficLights onSyncEvent={onSyncEvent} />
+            <Buildings testMode={testMode} onSyncEvent={onSyncEvent} />
+            <Lyrics syncCue={syncCue} />
         </>
     );
 }

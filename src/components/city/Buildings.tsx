@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import * as THREE from "three";
 import { usePlayer } from "@/contexts/PlayerContext";
-import { NEON_COLORS_THREE } from "@/constants/neon";
+import { NEON_HEX } from "@/constants/neon";
 import type { Building } from "@/types/city";
 
 const GRID_RANGE = 5;
@@ -100,7 +100,13 @@ function GroundPlane() {
     );
 }
 
-export default function Buildings({ testMode }: { testMode: boolean }) {
+export default function Buildings({
+    testMode,
+    onSyncEvent,
+}: {
+    testMode: boolean;
+    onSyncEvent?: (event: { color: string; worldX: number; worldZ: number }) => void;
+}) {
     const { player, isPlaying } = usePlayer();
     const groupRef = useRef<THREE.Group>(null);
 
@@ -125,6 +131,7 @@ export default function Buildings({ testMode }: { testMode: boolean }) {
     const lastPhraseId = useRef<number | null>(null);
     const targetBuilding = useRef(0);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
+    const lastSyncEmitAt = useRef(0);
 
     useFrame((state, delta) => {
         const pos = isPlaying && player?.video ? player.timer.position : 0;
@@ -139,13 +146,27 @@ export default function Buildings({ testMode }: { testMode: boolean }) {
                         if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
                     }
                     const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
+                    let syncColor = "#00ffff";
                     for (let c = 0; c < count; c++) {
                         const rnd = Math.floor(Math.random() * unlit.length);
                         const idx = unlit.splice(rnd, 1)[0];
+                        const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
+                        syncColor = colorHex;
                         litWindows.current.add(idx);
-                        mesh.setColorAt(idx, NEON_COLORS_THREE[Math.floor(Math.random() * NEON_COLORS_THREE.length)]);
+                        mesh.setColorAt(idx, new THREE.Color(colorHex));
                     }
                     if (count > 0 && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+                    const now = performance.now();
+                    if (count > 0 && onSyncEvent && now - lastSyncEmitAt.current > 180) {
+                        lastSyncEmitAt.current = now;
+                        const b = buildings[targetBuilding.current];
+                        onSyncEvent({
+                            color: syncColor,
+                            worldX: b?.x ?? 0,
+                            worldZ: b?.z ?? 0,
+                        });
+                    }
                 }
             }
             const phrase = player.video.findPhrase(pos);

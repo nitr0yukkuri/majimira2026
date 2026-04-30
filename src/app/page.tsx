@@ -26,13 +26,6 @@ function UIOverlay() {
   return (
     <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-8">
       <header className="flex justify-between items-center text-white">
-        <div className="pointer-events-auto">
-          {isPlaying ? (
-            <button onClick={pause} className="px-5 py-2 bg-red-500 hover:bg-red-400 rounded-full font-bold transition">PAUSE</button>
-          ) : (
-            <button disabled={!isReady} onClick={play} className={`px-5 py-2 border-2 border-cyan-500 rounded-full font-bold transition ${isReady ? 'hover:bg-cyan-500 hover:text-black text-cyan-500 cursor-pointer' : 'opacity-50 cursor-not-allowed text-cyan-500'}`}>PLAY</button>
-          )}
-        </div>
       </header>
 
       <main className="grow flex items-center justify-center pointer-events-none z-50">

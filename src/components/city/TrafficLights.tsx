@@ -95,9 +95,9 @@ function VehicleSignalHead({
                 </mesh>
             ))}
             {/* Lamps: Green / Yellow / Red */}
-            <NeonLamp position={[-0.2, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]} color={SIGNAL_GREEN}  isActive={color === SIGNAL_GREEN}  distance={3} lightRef={lightRef} />
-            <NeonLamp position={[0,    0, 0.11]} rotation={[Math.PI / 2, 0, 0]} color={SIGNAL_YELLOW} isActive={color === SIGNAL_YELLOW} distance={3} lightRef={lightRef} />
-            <NeonLamp position={[0.2,  0, 0.11]} rotation={[Math.PI / 2, 0, 0]} color={SIGNAL_RED}    isActive={color === SIGNAL_RED}    distance={3} lightRef={lightRef} />
+            <NeonLamp position={[-0.2, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]} color={SIGNAL_GREEN} isActive={color === SIGNAL_GREEN} distance={3} lightRef={lightRef} />
+            <NeonLamp position={[0, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]} color={SIGNAL_YELLOW} isActive={color === SIGNAL_YELLOW} distance={3} lightRef={lightRef} />
+            <NeonLamp position={[0.2, 0, 0.11]} rotation={[Math.PI / 2, 0, 0]} color={SIGNAL_RED} isActive={color === SIGNAL_RED} distance={3} lightRef={lightRef} />
         </group>
     );
 }
@@ -189,7 +189,11 @@ function SignalPole({
  * Signal state advances once per phrase.
  * Light intensity pulses on every beat and intensifies during chorus.
  */
-export default function TrafficLights() {
+export default function TrafficLights({
+    onSyncEvent,
+}: {
+    onSyncEvent?: (event: { color: string; worldX: number; worldZ: number }) => void;
+}) {
     const { player } = usePlayer();
     const [signalState, setSignalState] = useState<SignalState>(0);
     const lastPhraseId = useRef<number | null>(null);
@@ -203,7 +207,18 @@ export default function TrafficLights() {
         const phrase = player.video.findPhrase(pos);
         if (phrase && phrase.startTime !== lastPhraseId.current) {
             lastPhraseId.current = phrase.startTime;
-            setSignalState((prev) => ((prev + 1) % 4) as SignalState);
+            const nextState = ((signalState + 1) % 4) as SignalState;
+            setSignalState(nextState);
+
+            if (onSyncEvent) {
+                const axis = nextState === 0 || nextState === 1 ? "NS" : "EW";
+                const color = getVehicleColor(nextState, axis);
+                onSyncEvent({
+                    color,
+                    worldX: axis === "NS" ? 0 : 1.9,
+                    worldZ: axis === "NS" ? -1.9 : 0,
+                });
+            }
         }
 
         // Pulse intensity on beat, boost during chorus
@@ -227,15 +242,15 @@ export default function TrafficLights() {
 
     const nsVehicle = getVehicleColor(signalState, "NS");
     const ewVehicle = getVehicleColor(signalState, "EW");
-    const nsPed     = getPedestrianColor(signalState, "NS");
-    const ewPed     = getPedestrianColor(signalState, "EW");
+    const nsPed = getPedestrianColor(signalState, "NS");
+    const ewPed = getPedestrianColor(signalState, "EW");
 
     return (
         <group>
-            <SignalPole x={-1.9} z={-1.9} rotationY={0}            vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
-            <SignalPole x={1.9}  z={1.9}  rotationY={Math.PI}       vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
-            <SignalPole x={1.9}  z={-1.9} rotationY={-Math.PI / 2}  vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
-            <SignalPole x={-1.9} z={1.9}  rotationY={Math.PI / 2}   vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
+            <SignalPole x={-1.9} z={-1.9} rotationY={0} vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
+            <SignalPole x={1.9} z={1.9} rotationY={Math.PI} vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
+            <SignalPole x={1.9} z={-1.9} rotationY={-Math.PI / 2} vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
+            <SignalPole x={-1.9} z={1.9} rotationY={Math.PI / 2} vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
         </group>
     );
 }
