@@ -151,28 +151,25 @@ export default function Buildings({
     const lastPlaybackPosRef = useRef(0);
     const lastChorusState = useRef<boolean>(false);
 
-    const resetWindows = () => {
-        const mesh = windowsMeshRef.current;
-        if (!mesh) return;
+    const applyLitWindowColors = (mesh: THREE.InstancedMesh, chorus: boolean, pulse: number) => {
+        const chorusFactor = chorus ? 1.15 + pulse * 0.85 : 1;
 
-        const black = new THREE.Color("#000000");
-        litWindows.current.clear();
-        litWindowColors.current.clear();
+        for (const idx of litWindows.current) {
+            const baseColor = litWindowColors.current.get(idx);
+            if (!baseColor) continue;
 
-        for (let i = 0; i < windowData.matrices.length; i++) {
-            mesh.setColorAt(i, black);
+            const displayColor = baseColor.clone().multiplyScalar(chorusFactor);
+            mesh.setColorAt(idx, displayColor);
         }
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+        if (litWindows.current.size > 0 && mesh.instanceColor) {
+            mesh.instanceColor.needsUpdate = true;
+        }
     };
 
     useFrame((state, delta) => {
         const posRaw = Number(player?.timer?.position ?? 0);
         const pos = isPlaying && player?.video ? posRaw : 0;
-
-        // Stop した時のみ lights を clear（backward 時は clear しない）
-        if (posRaw <= 0) {
-            resetWindows();
-        }
         lastPlaybackPosRef.current = posRaw;
 
         if (isPlaying && player?.video) {
@@ -198,10 +195,7 @@ export default function Buildings({
                         litWindowColors.current.set(idx, color);
 
                         // 新しい窓を点灯する時に、すでに chorus 状態を反映
-                        let displayColor = color.clone();
-                        if (chorus) {
-                            displayColor.multiplyScalar(1.5);
-                        }
+                        const displayColor = color.clone().multiplyScalar(chorus ? 1.15 : 1);
                         mesh.setColorAt(idx, displayColor);
                     }
                     if (count > 0 && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -214,24 +208,20 @@ export default function Buildings({
             const mesh = windowsMeshRef.current;
             if (mesh) {
                 const chorus = !!player.findChorus(pos);
+                const beat = player.findBeat(pos);
+                const beatPulse = beat
+                    ? 1 - Math.min(1, Math.max(0, (pos - beat.startTime) / Math.max(beat.duration, 0.001)))
+                    : 0;
 
-                // Chorus 状態が変わった時のみ GPU を更新（点滅を防ぐ）
-                if (chorus !== lastChorusState.current) {
-                    lastChorusState.current = chorus;
-
-                    for (const idx of litWindows.current) {
-                        const baseColor = litWindowColors.current.get(idx);
-                        if (baseColor) {
-                            let displayColor = baseColor.clone();
-                            if (chorus) {
-                                // サビ中は1.5倍明るくする
-                                displayColor.multiplyScalar(1.5);
-                            }
-                            mesh.setColorAt(idx, displayColor);
-                        }
-                    }
-                    if (litWindows.current.size > 0 && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+                // サビ中はビートに合わせて点滅する。サビ外では固定表示に戻す。
+                if (chorus) {
+                    const pulse = 0.65 + Math.sin((1 - beatPulse) * Math.PI * 4) * 0.35;
+                    applyLitWindowColors(mesh, true, Math.max(0.2, pulse));
+                } else if (chorus !== lastChorusState.current) {
+                    applyLitWindowColors(mesh, false, 0);
                 }
+
+                lastChorusState.current = chorus;
             }
 
             const phrase = player.video.findPhrase(pos);
