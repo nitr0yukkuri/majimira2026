@@ -159,7 +159,7 @@ function SignalPole({
     lightRef: (el: THREE.PointLight | null) => void;
 }) {
     return (
-        <group position={[x, 0, z]} rotation={[0, rotationY, 0]}>
+        <group position={[x, 0.12, z]} rotation={[0, rotationY, 0]}>
             {/* Main pole */}
             <mesh position={[0, 2.0, 0]}>
                 <cylinderGeometry args={[0.05, 0.05, 4]} />
@@ -215,8 +215,8 @@ export default function TrafficLights({
                 const color = getVehicleColor(nextState, axis);
                 onSyncEvent({
                     color,
-                    worldX: axis === "NS" ? 0 : 1.9,
-                    worldZ: axis === "NS" ? -1.9 : 0,
+                    worldX: axis === "NS" ? 0 : 1.35,
+                    worldZ: axis === "NS" ? -1.35 : 0,
                 });
             }
         }
@@ -247,10 +247,10 @@ export default function TrafficLights({
 
     return (
         <group>
-            <SignalPole x={-1.9} z={-1.9} rotationY={0} vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
-            <SignalPole x={1.9} z={1.9} rotationY={Math.PI} vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
-            <SignalPole x={1.9} z={-1.9} rotationY={-Math.PI / 2} vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
-            <SignalPole x={-1.9} z={1.9} rotationY={Math.PI / 2} vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
+            <SignalPole x={-1.35} z={-1.35} rotationY={0} vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
+            <SignalPole x={1.35} z={1.35} rotationY={Math.PI} vehicleColor={nsVehicle} pedColor={ewPed} lightRef={pushRef} />
+            <SignalPole x={1.35} z={-1.35} rotationY={-Math.PI / 2} vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
+            <SignalPole x={-1.35} z={1.35} rotationY={Math.PI / 2} vehicleColor={ewVehicle} pedColor={nsPed} lightRef={pushRef} />
         </group>
     );
 }

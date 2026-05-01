@@ -9,7 +9,7 @@ import { NEON_HEX } from "@/constants/neon";
 import type { Building } from "@/types/city";
 
 const GRID_RANGE = 5;
-const GRID_SPACING = 2;
+const GRID_SPACING = 2.5; // 道路幅 ±1.75 + ビル半幅 0.5 + 余白 0.25 = 2.5 以上必要
 const MIN_HEIGHT = 1;
 const MAX_HEIGHT = 4;
 
@@ -150,6 +150,7 @@ export default function Buildings({
     const targetBuilding = useRef(0);
     const lastPlaybackPosRef = useRef(0);
     const lastChorusState = useRef<boolean>(false);
+    const songEndedRef = useRef(false);
 
     const resetWindows = () => {
         const mesh = windowsMeshRef.current;
@@ -161,6 +162,24 @@ export default function Buildings({
 
         for (let i = 0; i < windowData.matrices.length; i++) {
             mesh.setColorAt(i, black);
+        }
+        if (mesh.instanceColor) {
+            mesh.instanceColor.needsUpdate = true;
+        }
+    };
+
+    const lightUpAllWindows = () => {
+        const mesh = windowsMeshRef.current;
+        if (!mesh) return;
+
+        const white = new THREE.Color("#ffffff");
+        litWindows.current.clear();
+        litWindowColors.current.clear();
+
+        for (let i = 0; i < windowData.matrices.length; i++) {
+            litWindows.current.add(i);
+            litWindowColors.current.set(i, white);
+            mesh.setColorAt(i, white);
         }
         if (mesh.instanceColor) {
             mesh.instanceColor.needsUpdate = true;
@@ -187,7 +206,15 @@ export default function Buildings({
         const posRaw = Number(player?.timer?.position ?? 0);
         const pos = isPlaying && player?.video ? posRaw : 0;
 
-        if (posRaw === 0 && lastPlaybackPosRef.current > 0) {
+        if (songEndedRef.current && isPlaying && posRaw === 0) {
+            resetWindows();
+            songEndedRef.current = false;
+            lastWordId.current = null;
+            lastBuildingPhraseId.current = null;
+            lastChorusState.current = false;
+        }
+
+        if (posRaw === 0 && lastPlaybackPosRef.current > 0 && !songEndedRef.current) {
             resetWindows();
             lastWordId.current = null;
             lastBuildingPhraseId.current = null;
@@ -251,6 +278,12 @@ export default function Buildings({
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
                 targetBuilding.current = Math.floor(Math.random() * buildings.length);
+            }
+
+            const duration = Number(player.video.duration ?? 0);
+            if (duration > 0 && posRaw >= duration - 120 && !songEndedRef.current) {
+                lightUpAllWindows();
+                songEndedRef.current = true;
             }
         }
 
