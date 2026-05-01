@@ -85,24 +85,15 @@ function BuildingMeshes({ buildings }: { buildings: Building[] }) {
     );
 }
 
+/**
+ * instanceColor のみで色管理する。vertexColors は使わない。
+ * setColorAt → instanceColor.needsUpdate の組み合わせだけで完結する。
+ */
 function Windows({ count, meshRef }: { count: number; meshRef: React.RefObject<THREE.InstancedMesh | null> }) {
-    const geomRef = React.useRef<THREE.PlaneGeometry>(null);
-
-    React.useEffect(() => {
-        if (!geomRef.current) return;
-        if (!geomRef.current.attributes.color) {
-            const colors = new Float32Array(count * 3);
-            for (let i = 0; i < colors.length; i++) {
-                colors[i] = 1;
-            }
-            geomRef.current.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-        }
-    }, [count]);
-
     return (
         <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
-            <planeGeometry ref={geomRef} args={[1, 1]} />
-            <meshBasicMaterial toneMapped={false} vertexColors />
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial toneMapped={false} />
         </instancedMesh>
     );
 }
@@ -142,8 +133,11 @@ export default function Buildings({
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }, [windowData]);
 
+    // litWindowColors  : 各窓の「目標色」（フルブライト、コーラス係数適用前）
+    // currentWindowColors: 各窓の「現在の表示色」。黒→目標色へ毎フレームlerpする
     const litWindows = useRef<Set<number>>(new Set());
-    const litWindowColors = useRef<Map<number, THREE.Color>>(new Map());
+    const litWindowColors    = useRef<Map<number, THREE.Color>>(new Map());
+    const currentWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
@@ -152,53 +146,37 @@ export default function Buildings({
     const lastChorusState = useRef<boolean>(false);
     const songEndedRef = useRef(false);
 
+    // useFrame内でVector3/Colorをnewしないよう再利用バッファ
+    const _scratch = useRef(new THREE.Color());
+
     const resetWindows = () => {
         const mesh = windowsMeshRef.current;
         if (!mesh) return;
 
-        const black = new THREE.Color("#000000");
+        const black = new THREE.Color(0, 0, 0);
         litWindows.current.clear();
         litWindowColors.current.clear();
+        currentWindowColors.current.clear();
 
         for (let i = 0; i < windowData.matrices.length; i++) {
             mesh.setColorAt(i, black);
         }
-        if (mesh.instanceColor) {
-            mesh.instanceColor.needsUpdate = true;
-        }
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     };
 
     const lightUpAllWindows = () => {
-        const mesh = windowsMeshRef.current;
-        if (!mesh) return;
-
-        const white = new THREE.Color("#ffffff");
+        // 目標色を白に設定するだけ。実際の点灯はuseFrameのlerpが担う。
+        const white = new THREE.Color(1, 1, 1);
         litWindows.current.clear();
         litWindowColors.current.clear();
+        // currentWindowColors はそのまま残し、lerpの起点として使う
 
         for (let i = 0; i < windowData.matrices.length; i++) {
             litWindows.current.add(i);
-            litWindowColors.current.set(i, white);
-            mesh.setColorAt(i, white);
-        }
-        if (mesh.instanceColor) {
-            mesh.instanceColor.needsUpdate = true;
-        }
-    };
-
-    const applyLitWindowColors = (mesh: THREE.InstancedMesh, chorus: boolean, pulse: number) => {
-        const chorusFactor = chorus ? 1.15 + pulse * 0.85 : 1;
-
-        for (const idx of litWindows.current) {
-            const baseColor = litWindowColors.current.get(idx);
-            if (!baseColor) continue;
-
-            const displayColor = baseColor.clone().multiplyScalar(chorusFactor);
-            mesh.setColorAt(idx, displayColor);
-        }
-
-        if (litWindows.current.size > 0 && mesh.instanceColor) {
-            mesh.instanceColor.needsUpdate = true;
+            litWindowColors.current.set(i, white.clone());
+            if (!currentWindowColors.current.has(i)) {
+                currentWindowColors.current.set(i, new THREE.Color(0, 0, 0));
+            }
         }
     };
 
@@ -206,16 +184,12 @@ export default function Buildings({
         const posRaw = Number(player?.timer?.position ?? 0);
         const pos = isPlaying && player?.video ? posRaw : 0;
 
-        if (songEndedRef.current && isPlaying && posRaw === 0) {
+        // ── リセット条件: 再生停止中(isPlaying=false)かつposRawが0になった時のみ ──
+        // isPlaying=true 中は posRaw が一時的に 0 になっても絶対にリセットしない。
+        // TextAlive の timer.position は再生中でも瞬間的に 0 を返すことがあるため。
+        if (!isPlaying && posRaw === 0 && lastPlaybackPosRef.current > 0) {
             resetWindows();
             songEndedRef.current = false;
-            lastWordId.current = null;
-            lastBuildingPhraseId.current = null;
-            lastChorusState.current = false;
-        }
-
-        if (posRaw === 0 && lastPlaybackPosRef.current > 0 && !songEndedRef.current) {
-            resetWindows();
             lastWordId.current = null;
             lastBuildingPhraseId.current = null;
             lastChorusState.current = false;
@@ -223,68 +197,79 @@ export default function Buildings({
         lastPlaybackPosRef.current = posRaw;
 
         if (isPlaying && player?.video) {
+            // ── 単語検出: 目標色を登録するだけ。即時setColorAtはしない ──
             const word = player.video.findWord(pos);
             if (word && word.startTime !== lastWordId.current) {
                 lastWordId.current = word.startTime;
 
-                const mesh = windowsMeshRef.current;
-                if (mesh) {
-                    const unlit: number[] = [];
-                    for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                        if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
+                const unlit: number[] = [];
+                for (let i = 0; i < windowData.buildingIndices.length; i++) {
+                    if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
+                }
+
+                const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
+                for (let c = 0; c < count; c++) {
+                    const rnd = Math.floor(Math.random() * unlit.length);
+                    const idx = unlit.splice(rnd, 1)[0];
+                    const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
+                    litWindows.current.add(idx);
+                    litWindowColors.current.set(idx, new THREE.Color(colorHex));
+                    // currentWindowColors に起点がなければ黒から開始
+                    if (!currentWindowColors.current.has(idx)) {
+                        currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
                     }
-
-                    const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
-                    const chorus = !!player.findChorus(pos);
-                    for (let c = 0; c < count; c++) {
-                        const rnd = Math.floor(Math.random() * unlit.length);
-                        const idx = unlit.splice(rnd, 1)[0];
-                        const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
-                        const color = new THREE.Color(colorHex);
-                        litWindows.current.add(idx);
-                        litWindowColors.current.set(idx, color);
-
-                        // 新しい窓を点灯する時に、すでに chorus 状態を反映
-                        const displayColor = color.clone().multiplyScalar(chorus ? 1.15 : 1);
-                        mesh.setColorAt(idx, displayColor);
-                    }
-                    if (count > 0 && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-
-                    // 新しい窓が点灯した時点で chorus 状態を更新
-                    lastChorusState.current = chorus;
                 }
             }
 
-            const mesh = windowsMeshRef.current;
-            if (mesh) {
-                const chorus = !!player.findChorus(pos);
-                const beat = player.findBeat(pos);
-                const beatPulse = beat
-                    ? 1 - Math.min(1, Math.max(0, (pos - beat.startTime) / Math.max(beat.duration, 0.001)))
-                    : 0;
-
-                // サビ中はビートに合わせて点滅する。サビ外では固定表示に戻す。
-                if (chorus) {
-                    const pulse = 0.65 + Math.sin((1 - beatPulse) * Math.PI * 4) * 0.35;
-                    applyLitWindowColors(mesh, true, Math.max(0.2, pulse));
-                } else if (chorus !== lastChorusState.current) {
-                    applyLitWindowColors(mesh, false, 0);
-                }
-
-                lastChorusState.current = chorus;
-            }
-
+            // ── フレーズ検出: ターゲットビルを切り替え ──
             const phrase = player.video.findPhrase(pos);
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
                 targetBuilding.current = Math.floor(Math.random() * buildings.length);
             }
 
+            // ── 曲終了: 全窓を徐々に白く ──
             const duration = Number(player.video.duration ?? 0);
             if (duration > 0 && posRaw >= duration - 120 && !songEndedRef.current) {
                 lightUpAllWindows();
                 songEndedRef.current = true;
             }
+        }
+
+        // ── 毎フレーム: currentColor → targetColor へ lerp し setColorAt ──
+        const mesh = windowsMeshRef.current;
+        if (mesh && litWindows.current.size > 0) {
+            // コーラス・ビートによるブライトネス係数を計算
+            const chorus = isPlaying && player?.video ? !!player.findChorus(pos) : false;
+            const beat   = isPlaying && player?.video ? player.findBeat(pos) : null;
+            const beatPulse = beat
+                ? 1 - Math.min(1, Math.max(0, (pos - beat.startTime) / Math.max(beat.duration, 0.001)))
+                : 0;
+            // サビ外: 1.0、サビ中: ビートに合わせて 1.0〜2.0 の間でパルス
+            const chorusFactor = chorus
+                ? 1.0 + (0.65 + Math.sin((1 - beatPulse) * Math.PI * 4) * 0.35) * 1.0
+                : 1.0;
+
+            // lerpの速度: 値が大きいほど速く点灯（3.0 ≈ 約0.5秒で95%）
+            const FADE_SPEED = 3.0;
+            const alpha = Math.min(1, FADE_SPEED * delta);
+
+            let needsUpdate = false;
+            for (const idx of litWindows.current) {
+                const target  = litWindowColors.current.get(idx);
+                const current = currentWindowColors.current.get(idx);
+                if (!target || !current) continue;
+
+                // target × chorusFactor を今フレームの目標にする
+                _scratch.current.copy(target).multiplyScalar(chorusFactor);
+                current.lerp(_scratch.current, alpha);
+
+                mesh.setColorAt(idx, current);
+                needsUpdate = true;
+            }
+            if (needsUpdate && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+            lastChorusState.current = chorus;
         }
 
         if (!testMode) {
