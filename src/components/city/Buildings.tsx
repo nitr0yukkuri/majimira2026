@@ -204,7 +204,7 @@ export default function Buildings({
             if (mesh && windowData.matrices.length > 0) {
                 const chorus = !!player.findChorus(pos);
                 const black = new THREE.Color("#000000");
-                
+
                 for (let i = 0; i < windowData.matrices.length; i++) {
                     const baseColor = litWindowColors.current.get(i);
                     if (baseColor) {
