@@ -141,7 +141,7 @@ export default function Buildings({
     // litWindowColors  : 各窓の「目標色」（フルブライト、コーラス係数適用前）
     // currentWindowColors: 各窓の「現在の表示色」。黒→目標色へ毎フレームlerpする
     const litWindows = useRef<Set<number>>(new Set());
-    const litWindowColors    = useRef<Map<number, THREE.Color>>(new Map());
+    const litWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const currentWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
@@ -265,7 +265,7 @@ export default function Buildings({
         if (mesh && litWindows.current.size > 0) {
             // コーラス・ビートによるブライトネス係数を計算
             const chorus = isPlaying && player?.video ? !!player.findChorus(pos) : false;
-            const beat   = isPlaying && player?.video ? player.findBeat(pos) : null;
+            const beat = isPlaying && player?.video ? player.findBeat(pos) : null;
             const beatPulse = beat
                 ? 1 - Math.min(1, Math.max(0, (pos - beat.startTime) / Math.max(beat.duration, 0.001)))
                 : 0;
@@ -280,7 +280,7 @@ export default function Buildings({
 
             let needsUpdate = false;
             for (const idx of litWindows.current) {
-                const target  = litWindowColors.current.get(idx);
+                const target = litWindowColors.current.get(idx);
                 const current = currentWindowColors.current.get(idx);
                 if (!target || !current) continue;
 
