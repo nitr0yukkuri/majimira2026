@@ -35,15 +35,19 @@ const WALL_OFFSET = 0.5;
 interface WindowData {
     matrices: THREE.Matrix4[];
     buildingIndices: number[];
+    faces: WindowFace[];
     positions: THREE.Vector3[];
 }
+
+type WindowFace = "posZ" | "negZ" | "posX" | "negX";
 
 function generateWindowData(buildings: Building[]): WindowData {
     const matrices: THREE.Matrix4[] = [];
     const buildingIndices: number[] = [];
+    const faces: WindowFace[] = [];
     const positions: THREE.Vector3[] = [];
 
-    const addWindow = (px: number, py: number, pz: number, ry: number, bIdx: number) => {
+    const addWindow = (px: number, py: number, pz: number, ry: number, bIdx: number, face: WindowFace) => {
         const matrix = new THREE.Matrix4().compose(
             new THREE.Vector3(px, py, pz),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)),
@@ -51,6 +55,7 @@ function generateWindowData(buildings: Building[]): WindowData {
         );
         matrices.push(matrix);
         buildingIndices.push(bIdx);
+        faces.push(face);
         positions.push(new THREE.Vector3(px, py, pz));
     };
 
@@ -60,15 +65,15 @@ function generateWindowData(buildings: Building[]): WindowData {
             const py = f * FLOOR_HEIGHT + FLOOR_HEIGHT / 2;
             for (let c = 0; c < WINDOW_COLS; c++) {
                 const lx = -0.5 + (c + 0.5) * WINDOW_SPACING;
-                addWindow(b.x + lx, py, b.z + WALL_OFFSET, 0, bIdx);
-                addWindow(b.x + lx, py, b.z - WALL_OFFSET, Math.PI, bIdx);
-                addWindow(b.x + WALL_OFFSET, py, b.z + lx, Math.PI / 2, bIdx);
-                addWindow(b.x - WALL_OFFSET, py, b.z + lx, -Math.PI / 2, bIdx);
+                addWindow(b.x + lx, py, b.z + WALL_OFFSET, 0, bIdx, "posZ");
+                addWindow(b.x + lx, py, b.z - WALL_OFFSET, Math.PI, bIdx, "negZ");
+                addWindow(b.x + WALL_OFFSET, py, b.z + lx, Math.PI / 2, bIdx, "posX");
+                addWindow(b.x - WALL_OFFSET, py, b.z + lx, -Math.PI / 2, bIdx, "negX");
             }
         }
     });
 
-    return { matrices, buildingIndices, positions };
+    return { matrices, buildingIndices, faces, positions };
 }
 
 function BuildingMeshes({ buildings }: { buildings: Building[] }) {
@@ -91,7 +96,7 @@ function BuildingMeshes({ buildings }: { buildings: Building[] }) {
  */
 function Windows({ count, meshRef }: { count: number; meshRef: React.RefObject<THREE.InstancedMesh | null> }) {
     return (
-        <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+        <instancedMesh ref={meshRef} args={[undefined, undefined, count]} frustumCulled={false}>
             <planeGeometry args={[1, 1]} />
             <meshBasicMaterial toneMapped={false} />
         </instancedMesh>
@@ -164,6 +169,17 @@ export default function Buildings({
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     };
 
+    const getCameraFacingFace = (building: Building, cameraPosition: THREE.Vector3): WindowFace => {
+        const dx = cameraPosition.x - building.x;
+        const dz = cameraPosition.z - building.z;
+
+        if (Math.abs(dx) > Math.abs(dz)) {
+            return dx >= 0 ? "posX" : "negX";
+        }
+
+        return dz >= 0 ? "posZ" : "negZ";
+    };
+
     const lightUpAllWindows = () => {
         // 目標色を白に設定するだけ。実際の点灯はuseFrameのlerpが担う。
         const white = new THREE.Color(1, 1, 1);
@@ -201,10 +217,18 @@ export default function Buildings({
             const word = player.video.findWord(pos);
             if (word && word.startTime !== lastWordId.current) {
                 lastWordId.current = word.startTime;
+                const target = buildings[targetBuilding.current] ?? buildings[0];
+                const cameraFacingFace = target ? getCameraFacingFace(target, state.camera.position) : null;
 
                 const unlit: number[] = [];
                 for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                    if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
+                    if (
+                        windowData.buildingIndices[i] === targetBuilding.current &&
+                        windowData.faces[i] === cameraFacingFace &&
+                        !litWindows.current.has(i)
+                    ) {
+                        unlit.push(i);
+                    }
                 }
 
                 const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);

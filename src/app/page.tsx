@@ -180,7 +180,7 @@ function WelcomeModal({ show, onClose }: { show: boolean; onClose: () => void })
         <div className="flex justify-center">
           <button
             onClick={onClose}
-            className="px-10 py-3 bg-linear-to-r from-[#ff00ff] to-[#00ffff] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00ffcc]/40 transition-all"
+            className="px-10 py-3 bg-linear-to-r from-[#ff00ff] to-[#00ffff] text-black font-bold rounded-lg transition-all"
           >
             OK
           </button>
