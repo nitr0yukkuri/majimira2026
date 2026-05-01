@@ -149,6 +149,7 @@ export default function Buildings({
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
     const targetBuilding = useRef(0);
     const lastPlaybackPosRef = useRef(0);
+    const lastChorusState = useRef<boolean>(false);
 
     const resetWindows = () => {
         const mesh = windowsMeshRef.current;
@@ -187,6 +188,7 @@ export default function Buildings({
                     }
 
                     const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
+                    const chorus = !!player.findChorus(pos);
                     for (let c = 0; c < count; c++) {
                         const rnd = Math.floor(Math.random() * unlit.length);
                         const idx = unlit.splice(rnd, 1)[0];
@@ -194,31 +196,45 @@ export default function Buildings({
                         const color = new THREE.Color(colorHex);
                         litWindows.current.add(idx);
                         litWindowColors.current.set(idx, color);
-                        mesh.setColorAt(idx, color);
+
+                        // 新しい窓を点灯する時に、すでに chorus 状態を反映
+                        let displayColor = color.clone();
+                        if (chorus) {
+                            displayColor.multiplyScalar(1.5);
+                        }
+                        mesh.setColorAt(idx, displayColor);
                     }
                     if (count > 0 && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+                    // 新しい窓が点灯した時点で chorus 状態を更新
+                    lastChorusState.current = chorus;
                 }
             }
 
             const mesh = windowsMeshRef.current;
             if (mesh && windowData.matrices.length > 0) {
                 const chorus = !!player.findChorus(pos);
-                const black = new THREE.Color("#000000");
 
-                for (let i = 0; i < windowData.matrices.length; i++) {
-                    const baseColor = litWindowColors.current.get(i);
-                    if (baseColor) {
-                        let displayColor = baseColor.clone();
-                        if (chorus) {
-                            // サビ中は1.5倍明るくする
-                            displayColor.multiplyScalar(1.5);
+                // Chorus 状態が変わった時のみ GPU を更新（点滅を防ぐ）
+                if (chorus !== lastChorusState.current) {
+                    lastChorusState.current = chorus;
+                    const black = new THREE.Color("#000000");
+
+                    for (let i = 0; i < windowData.matrices.length; i++) {
+                        const baseColor = litWindowColors.current.get(i);
+                        if (baseColor) {
+                            let displayColor = baseColor.clone();
+                            if (chorus) {
+                                // サビ中は1.5倍明るくする
+                                displayColor.multiplyScalar(1.5);
+                            }
+                            mesh.setColorAt(i, displayColor);
+                        } else {
+                            mesh.setColorAt(i, black);
                         }
-                        mesh.setColorAt(i, displayColor);
-                    } else {
-                        mesh.setColorAt(i, black);
                     }
+                    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
                 }
-                if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
             }
 
             const phrase = player.video.findPhrase(pos);
