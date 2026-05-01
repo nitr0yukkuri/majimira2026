@@ -214,27 +214,22 @@ export default function Buildings({
             const mesh = windowsMeshRef.current;
             if (mesh && windowData.matrices.length > 0) {
                 const chorus = !!player.findChorus(pos);
+                const black = new THREE.Color("#000000");
 
-                // Chorus 状態が変わった時のみ GPU を更新（点滅を防ぐ）
-                if (chorus !== lastChorusState.current) {
-                    lastChorusState.current = chorus;
-                    const black = new THREE.Color("#000000");
-
-                    for (let i = 0; i < windowData.matrices.length; i++) {
-                        const baseColor = litWindowColors.current.get(i);
-                        if (baseColor) {
-                            let displayColor = baseColor.clone();
-                            if (chorus) {
-                                // サビ中は1.5倍明るくする
-                                displayColor.multiplyScalar(1.5);
-                            }
-                            mesh.setColorAt(i, displayColor);
-                        } else {
-                            mesh.setColorAt(i, black);
+                for (let i = 0; i < windowData.matrices.length; i++) {
+                    const baseColor = litWindowColors.current.get(i);
+                    if (baseColor) {
+                        let displayColor = baseColor.clone();
+                        if (chorus) {
+                            // サビ中は1.5倍明るくする
+                            displayColor.multiplyScalar(1.5);
                         }
+                        mesh.setColorAt(i, displayColor);
+                    } else {
+                        mesh.setColorAt(i, black);
                     }
-                    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
                 }
+                if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
             }
 
             const phrase = player.video.findPhrase(pos);
