@@ -174,7 +174,9 @@ function WelcomeModal({ show, onClose }: { show: boolean; onClose: () => void })
           <div className="text-white text-lg font-semibold">{title}</div>
           {artist ? <div className="text-[#9eeaf1] text-sm mt-1">{artist}</div> : null}
         </div>
-        <p className="text-gray-400 mb-6 text-xs text-center">下部のコントロールで再生・停止・シークができます</p>
+        <div className="mb-6 flex justify-center">
+          <p className="m-0 w-full max-w-none text-center text-gray-400 text-xs">下部のコントロールで再生・停止・シークができます</p>
+        </div>
         <div className="flex justify-center">
           <button
             onClick={onClose}

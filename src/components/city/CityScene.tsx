@@ -21,8 +21,8 @@ export default function CityScene({ testMode }: { testMode: boolean }) {
     return (
         <>
             {/* Scene-wide lighting */}
-            <ambientLight intensity={isPlaying ? 1 : 0.2} />
-            <directionalLight position={[10, 10, 5]} intensity={1} />
+            <ambientLight intensity={isPlaying ? 0.45 : 0.15} />
+            <directionalLight position={[10, 10, 5]} intensity={0.65} />
 
             <IntersectionAndRoads />
             <LightTrails />
