@@ -151,6 +151,22 @@ export default function Buildings({
     const lastPlaybackPosRef = useRef(0);
     const lastChorusState = useRef<boolean>(false);
 
+    const resetWindows = () => {
+        const mesh = windowsMeshRef.current;
+        if (!mesh) return;
+
+        const black = new THREE.Color("#000000");
+        litWindows.current.clear();
+        litWindowColors.current.clear();
+
+        for (let i = 0; i < windowData.matrices.length; i++) {
+            mesh.setColorAt(i, black);
+        }
+        if (mesh.instanceColor) {
+            mesh.instanceColor.needsUpdate = true;
+        }
+    };
+
     const applyLitWindowColors = (mesh: THREE.InstancedMesh, chorus: boolean, pulse: number) => {
         const chorusFactor = chorus ? 1.15 + pulse * 0.85 : 1;
 
@@ -170,6 +186,13 @@ export default function Buildings({
     useFrame((state, delta) => {
         const posRaw = Number(player?.timer?.position ?? 0);
         const pos = isPlaying && player?.video ? posRaw : 0;
+
+        if (posRaw === 0 && lastPlaybackPosRef.current > 0) {
+            resetWindows();
+            lastWordId.current = null;
+            lastBuildingPhraseId.current = null;
+            lastChorusState.current = false;
+        }
         lastPlaybackPosRef.current = posRaw;
 
         if (isPlaying && player?.video) {
