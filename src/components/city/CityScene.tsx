@@ -6,6 +6,7 @@ import IntersectionAndRoads from "./IntersectionAndRoads";
 import LightTrails from "./LightTrails";
 import TrafficLights from "./TrafficLights";
 import Buildings from "./Buildings";
+import RainEffect from "./RainEffect";
 
 /**
  * CityScene is the top-level aggregator for all 3D city elements.
@@ -28,6 +29,7 @@ export default function CityScene({ testMode }: { testMode: boolean }) {
             <LightTrails />
             <TrafficLights />
             <Buildings testMode={testMode} />
+            <RainEffect />
         </>
     );
 }
