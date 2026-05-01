@@ -148,28 +148,42 @@ export default function Home() {
         </div>
 
         {/* Welcome Modal */}
-        {showWelcome && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm pointer-events-auto">
-            <div className="bg-linear-to-b from-[#1a1a2e] to-[#16213e] border border-[#00ffcc]/30 rounded-2xl p-8 max-w-md text-center shadow-2xl">
-              <h1 className="text-3xl font-bold mb-4 bg-linear-to-r from-[#ff00ff] via-[#00ffff] to-[#ffff00] bg-clip-text text-transparent">
-                MAJIMIRA 2026
-              </h1>
-              <p className="text-gray-300 mb-2 text-sm leading-relaxed">
-                TextAliveで音楽の歌詞にシンクロした3D都市が光り輝く
-              </p>
-              <p className="text-gray-400 mb-6 text-xs">
-                下部のコントロールで再生・停止・シークができます
-              </p>
-              <button
-                onClick={() => setShowWelcome(false)}
-                className="px-8 py-2 bg-linear-to-r from-[#ff00ff] to-[#00ffff] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00ffcc]/50 transition-all"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
+        <WelcomeModal show={showWelcome} onClose={() => setShowWelcome(false)} />
       </main>
     </PlayerProvider>
+  );
+}
+
+function WelcomeModal({ show, onClose }: { show: boolean; onClose: () => void }) {
+  // 固定表示：指定された曲情報をそのまま表示します
+  const title = "TAKEOVER";
+  const artist = "Twinfield / 初音ミク";
+
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md pointer-events-auto">
+      <div className="bg-linear-to-b from-[#0f1724] to-[#071026] border border-[#00ffcc]/25 rounded-3xl p-10 max-w-2xl w-[min(92%,900px)] text-center shadow-2xl">
+        <h1 className="text-4xl sm:text-5xl font-extrabold mb-4 bg-linear-to-r from-[#ff00ff] via-[#00ffff] to-[#ffff00] bg-clip-text text-transparent">
+          MAJIMIRA 2026
+        </h1>
+        <p className="text-gray-300 mb-2 text-base sm:text-lg">
+          TextAliveで歌詞にシンクロする3D都市が光り輝きます。
+        </p>
+        <div className="mt-4 mb-6">
+          <div className="text-white text-lg font-semibold">{title}</div>
+          {artist ? <div className="text-[#9eeaf1] text-sm mt-1">{artist}</div> : null}
+        </div>
+        <p className="text-gray-400 mb-6 text-xs text-center">下部のコントロールで再生・停止・シークができます</p>
+        <div className="flex justify-center">
+          <button
+            onClick={onClose}
+            className="px-10 py-3 bg-linear-to-r from-[#ff00ff] to-[#00ffff] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00ffcc]/40 transition-all"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
