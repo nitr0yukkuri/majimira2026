@@ -133,10 +133,10 @@ function BottomLyricsBand() {
 }
 
 export default function Home() {
+  const [showWelcome, setShowWelcome] = useState(true);
   return (
     <PlayerProvider>
       <main className="w-screen h-screen bg-black overflow-hidden relative font-sans">
-
         {/* The 3D World */}
         <div className="absolute inset-0 z-0 bg-black pointer-events-auto">
           <Scene />
@@ -147,6 +147,28 @@ export default function Home() {
           <UIOverlay />
         </div>
 
+        {/* Welcome Modal */}
+        {showWelcome && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm pointer-events-auto">
+            <div className="bg-linear-to-b from-[#1a1a2e] to-[#16213e] border border-[#00ffcc]/30 rounded-2xl p-8 max-w-md text-center shadow-2xl">
+              <h1 className="text-3xl font-bold mb-4 bg-linear-to-r from-[#ff00ff] via-[#00ffff] to-[#ffff00] bg-clip-text text-transparent">
+                MAJIMIRA 2026
+              </h1>
+              <p className="text-gray-300 mb-2 text-sm leading-relaxed">
+                TextAliveで音楽の歌詞にシンクロした3D都市が光り輝く
+              </p>
+              <p className="text-gray-400 mb-6 text-xs">
+                下部のコントロールで再生・停止・シークができます
+              </p>
+              <button
+                onClick={() => setShowWelcome(false)}
+                className="px-8 py-2 bg-linear-to-r from-[#ff00ff] to-[#00ffff] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00ffcc]/50 transition-all"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </PlayerProvider>
   );
