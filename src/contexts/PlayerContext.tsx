@@ -84,7 +84,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     const play = () => player?.requestPlay();
     const pause = () => player?.requestPause();
-    const stop = () => player?.requestStop();
+    const stop = () => {
+        if (!player) return;
+        player.requestPause();
+        player.requestMediaSeek(0);
+        setIsPlaying(false);
+    };
     const seek = (position: number) => player?.requestMediaSeek(position);
 
     return (
