@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import BuildingGlows from "./BuildingGlows";
-import BuildingMeshes from "./BuildingMeshes";
-import GroundPlane from "./GroundPlane";
-import Windows from "./Windows";
 import { generateBuildings, generateWindowData } from "./buildingsData";
+import BuildingMeshes from "./BuildingMeshes";
+import BuildingGlows from "./BuildingGlows";
+import Windows from "./Windows";
+import GroundPlane from "./GroundPlane";
 import { useBuildingsAnimation } from "./useBuildingsAnimation";
 
 export default function Buildings({ testMode }: { testMode: boolean }) {
@@ -21,12 +21,27 @@ export default function Buildings({ testMode }: { testMode: boolean }) {
         windowsMeshRef,
     });
 
+    useEffect(() => {
+        const mesh = windowsMeshRef.current;
+        if (!mesh) return;
+        const black = new THREE.Color("#000000");
+
+        for (let i = 0; i < windowData.matrices.length; i++) {
+            mesh.setMatrixAt(i, windowData.matrices[i]);
+            mesh.setColorAt(i, black);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }, [windowData]);
+
     return (
         <>
             <group ref={groupRef}>
                 <BuildingGlows buildings={buildings} targetBuilding={targetBuilding} />
                 <BuildingMeshes buildings={buildings} />
-                {windowData.matrices.length > 0 && <Windows count={windowData.matrices.length} meshRef={windowsMeshRef} />}
+                {windowData.matrices.length > 0 && (
+                    <Windows count={windowData.matrices.length} meshRef={windowsMeshRef} />
+                )}
             </group>
             <GroundPlane />
         </>

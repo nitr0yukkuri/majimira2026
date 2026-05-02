@@ -105,7 +105,7 @@ export function useBuildingsAnimation({
                 const rnd = Math.floor(Math.random() * candidates.length);
                 const idx = candidates.splice(rnd, 1)[0];
                 const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
-                const idleColor = new THREE.Color(colorHex).multiplyScalar(0.35 + Math.random() * 0.15);
+                const idleColor = new THREE.Color(colorHex);
                 litWindows.current.add(idx);
                 litWindowColors.current.set(idx, idleColor);
                 if (!currentWindowColors.current.has(idx)) {
@@ -165,8 +165,14 @@ export function useBuildingsAnimation({
                                 next = Math.floor(Math.random() * buildings.length);
                             }
 
-                            const switchAt = phraseDuration > 0 ? Number(phrase.startTime + phraseDuration) : posRaw;
-                            pendingBuildingSwitch.current = { nextBuilding: next, switchAt };
+                            const switchAt = phraseDuration > 0
+                                ? Number(phrase.startTime + phraseDuration)
+                                : posRaw;
+
+                            pendingBuildingSwitch.current = {
+                                nextBuilding: next,
+                                switchAt,
+                            };
                         }
                     } else {
                         const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
@@ -193,8 +199,12 @@ export function useBuildingsAnimation({
 
             if (hasActivePhrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
+
                 const phraseDur = Number(phrase.duration ?? ORBIT_DUR_MAX);
-                const tNorm = Math.min(1, Math.max(0, (phraseDur - ORBIT_DUR_MIN) / (ORBIT_DUR_MAX - ORBIT_DUR_MIN)));
+
+                const tNorm = Math.min(1, Math.max(0,
+                    (phraseDur - ORBIT_DUR_MIN) / (ORBIT_DUR_MAX - ORBIT_DUR_MIN)
+                ));
                 targetOrbitRadius.current = ORBIT_RADIUS_MIN + tNorm * (ORBIT_RADIUS_MAX - ORBIT_RADIUS_MIN);
             }
 
@@ -238,7 +248,8 @@ export function useBuildingsAnimation({
                 ? 1.0 + (0.65 + Math.sin((1 - beatPulse) * Math.PI * 4) * 0.35) * 1.0
                 : 1.0;
 
-            const alpha = 1;
+            const FADE_SPEED = chorus ? 3.0 : 2.3;
+            const alpha = Math.min(1, FADE_SPEED * delta);
 
             let needsUpdate = false;
             for (const idx of litWindows.current) {
@@ -258,8 +269,10 @@ export function useBuildingsAnimation({
         if (!testMode) {
             const target = buildings[targetBuilding.current] ?? buildings[0];
             if (target) {
-                currentOrbitRadius.current += (targetOrbitRadius.current - currentOrbitRadius.current) * Math.min(1, 1.5 * delta);
+                currentOrbitRadius.current +=
+                    (targetOrbitRadius.current - currentOrbitRadius.current) * Math.min(1, 1.5 * delta);
                 const r = currentOrbitRadius.current;
+
                 _camLookAt.current.set(target.x, target.h / 2, target.z);
                 cameraTarget.current.lerp(_camLookAt.current, 1.5 * delta);
                 state.camera.lookAt(cameraTarget.current);
