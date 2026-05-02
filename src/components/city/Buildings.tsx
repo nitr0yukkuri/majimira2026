@@ -140,6 +140,7 @@ export default function Buildings({
     const currentWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
+    const pendingBuildingSwitch = useRef<{ nextBuilding: number; switchAt: number } | null>(null);
     const idleWindowAccumulator = useRef(0);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
     const targetBuilding = useRef(0); // 現在注目中のビルインデックス
@@ -170,6 +171,7 @@ export default function Buildings({
         litWindows.current.clear();
         litWindowColors.current.clear();
         currentWindowColors.current.clear();
+        pendingBuildingSwitch.current = null;
         idleWindowAccumulator.current = 0;
 
         for (let i = 0; i < windowData.matrices.length; i++) {
@@ -207,6 +209,7 @@ export default function Buildings({
             lastWordId.current = null;
             lastBuildingPhraseId.current = null;
             lastChorusState.current = false;
+            pendingBuildingSwitch.current = null;
             idleWindowAccumulator.current = 0;
         }
         lastPlaybackPosRef.current = posRaw;
@@ -282,8 +285,22 @@ export default function Buildings({
                     }
 
                     if (unlit.length === 0) {
-                        // 全窓点灯済み → すぐ完全未点灯のビルへ切り替える
-                        advanceToNextCameraBuilding();
+                        // 全窓点灯済み → フレーズ終端まで待ってから次のビルへ切り替える
+                        if (!pendingBuildingSwitch.current && phrase) {
+                            let next = Math.floor(Math.random() * buildings.length);
+                            while (next === targetBuilding.current && buildings.length > 1) {
+                                next = Math.floor(Math.random() * buildings.length);
+                            }
+
+                            const switchAt = phraseDuration > 0
+                                ? Number(phrase.startTime + phraseDuration)
+                                : posRaw;
+
+                            pendingBuildingSwitch.current = {
+                                nextBuilding: next,
+                                switchAt,
+                            };
+                        }
                     } else {
                         const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
                         for (let c = 0; c < count; c++) {
@@ -298,6 +315,13 @@ export default function Buildings({
                         }
                     }
                 }
+            }
+
+            const pendingSwitch = pendingBuildingSwitch.current;
+            if (pendingSwitch && posRaw >= pendingSwitch.switchAt) {
+                targetBuilding.current = pendingSwitch.nextBuilding;
+                pendingBuildingSwitch.current = null;
+                lastWordId.current = null;
             }
 
             // ── フレーズ検出: 軌道半径の更新のみ ──
