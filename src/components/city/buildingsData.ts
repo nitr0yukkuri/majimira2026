@@ -16,6 +16,7 @@ export interface WindowData {
     matrices: THREE.Matrix4[];
     buildingIndices: number[];
     positions: THREE.Vector3[];
+    windowsByBuilding: number[][];
 }
 
 export function generateBuildings(): Building[] {
@@ -35,8 +36,10 @@ export function generateWindowData(buildings: Building[]): WindowData {
     const matrices: THREE.Matrix4[] = [];
     const buildingIndices: number[] = [];
     const positions: THREE.Vector3[] = [];
+    const windowsByBuilding: number[][] = buildings.map(() => []);
 
     const addWindow = (px: number, py: number, pz: number, ry: number, bIdx: number) => {
+        const windowIndex = matrices.length;
         const matrix = new THREE.Matrix4().compose(
             new THREE.Vector3(px, py, pz),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)),
@@ -45,6 +48,7 @@ export function generateWindowData(buildings: Building[]): WindowData {
         matrices.push(matrix);
         buildingIndices.push(bIdx);
         positions.push(new THREE.Vector3(px, py, pz));
+        windowsByBuilding[bIdx].push(windowIndex);
     };
 
     buildings.forEach((b, bIdx) => {
@@ -61,5 +65,5 @@ export function generateWindowData(buildings: Building[]): WindowData {
         }
     });
 
-    return { matrices, buildingIndices, positions };
+    return { matrices, buildingIndices, positions, windowsByBuilding };
 }

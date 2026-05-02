@@ -44,6 +44,7 @@ export function useBuildingsAnimation({
     const _camOrbit = useRef(new THREE.Vector3());
     const targetOrbitRadius = useRef(6);
     const currentOrbitRadius = useRef(6);
+    const windowsByBuilding = windowData.windowsByBuilding;
 
     const resetWindows = () => {
         const mesh = windowsMeshRef.current;
@@ -76,6 +77,28 @@ export function useBuildingsAnimation({
         }
     };
 
+    const getUnlitWindowsForBuilding = (buildingIndex: number) => {
+        const source = windowsByBuilding[buildingIndex] ?? [];
+        const result: number[] = [];
+        for (let i = 0; i < source.length; i++) {
+            const windowIndex = source[i];
+            if (!litWindows.current.has(windowIndex)) {
+                result.push(windowIndex);
+            }
+        }
+        return result;
+    };
+
+    const hasUnlitWindowsForBuilding = (buildingIndex: number) => {
+        const source = windowsByBuilding[buildingIndex] ?? [];
+        for (let i = 0; i < source.length; i++) {
+            if (!litWindows.current.has(source[i])) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     useFrame((state, delta) => {
         const posRaw = Number(player?.timer?.position ?? 0);
         const pos = isPlaying && player?.video ? posRaw : 0;
@@ -91,13 +114,7 @@ export function useBuildingsAnimation({
         lastPlaybackPosRef.current = posRaw;
 
         const lightIdleWindowsForTargetBuilding = (count: number) => {
-            const candidates: number[] = [];
-            for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) {
-                    candidates.push(i);
-                }
-            }
-
+            const candidates = getUnlitWindowsForBuilding(targetBuilding.current);
             if (candidates.length === 0) return;
 
             const actualCount = Math.min(count, candidates.length);
@@ -112,15 +129,6 @@ export function useBuildingsAnimation({
                     currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
                 }
             }
-        };
-
-        const hasUnlitWindowsForBuilding = (buildingIndex: number) => {
-            for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                if (windowData.buildingIndices[i] === buildingIndex && !litWindows.current.has(i)) {
-                    return true;
-                }
-            }
-            return false;
         };
 
         const advanceToNextCameraBuilding = () => {
@@ -153,10 +161,7 @@ export function useBuildingsAnimation({
                 if (word && word.startTime !== lastWordId.current) {
                     lastWordId.current = word.startTime;
 
-                    const unlit: number[] = [];
-                    for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                        if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
-                    }
+                    const unlit = getUnlitWindowsForBuilding(targetBuilding.current);
 
                     if (unlit.length === 0) {
                         if (!pendingBuildingSwitch.current && phrase) {
@@ -209,12 +214,7 @@ export function useBuildingsAnimation({
             }
 
             if (!hasActivePhrase) {
-                const targetCandidates: number[] = [];
-                for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                    if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) {
-                        targetCandidates.push(i);
-                    }
-                }
+                const targetCandidates = getUnlitWindowsForBuilding(targetBuilding.current);
 
                 if (targetCandidates.length > 0) {
                     idleWindowAccumulator.current += delta * 1000;

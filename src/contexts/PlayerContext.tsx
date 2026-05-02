@@ -20,6 +20,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isReady, setIsReady] = useState(false);
     const playerRef = useRef<Player | null>(null);
+    const mediaRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -41,7 +42,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
         if (playerRef.current) return;
 
-        const mediaEl = document.querySelector("#media");
+        const mediaEl = mediaRef.current;
+        if (!mediaEl) return;
 
         const newPlayer = new Player({
             app: {
@@ -49,7 +51,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 appName: "Prototype",
                 token: "test", // 実際の運用時は正規のデベロッパートークンに置き換えてください
             },
-            mediaElement: mediaEl as HTMLElement,
+            mediaElement: mediaEl,
         });
 
         newPlayer.addListener({
@@ -95,7 +97,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     return (
         <PlayerContext.Provider value={{ player, isPlaying, isReady, play, pause, stop, seek }}>
             {children}
-            <div id="media" className="hidden"></div>
+            <audio id="media" ref={mediaRef} className="hidden" />
         </PlayerContext.Provider>
     );
 }

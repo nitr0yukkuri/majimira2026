@@ -1,23 +1,25 @@
 "use client";
 
-import { usePlayer, PlayerProvider } from "@/contexts/PlayerContext";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
-import React from 'react';
-import BottomBar from '@/components/BottomBar';
-import { IPhrase, IWord } from "textalive-app-api";
+import { useEffect, useState } from "react";
+import React from "react";
+import { PlayerProvider, usePlayer } from "@/contexts/PlayerContext";
+import BottomBar from "@/components/BottomBar";
 
 // Disable SSR for 3D component and APIs using browser globals
-const Scene = dynamic(() => import("@/components/Scene").then(mod => mod.default), { ssr: false });
+const Scene = dynamic(() => import("@/components/Scene").then((mod) => mod.default), { ssr: false });
 
-const neonColors = ['text-[#ff00ff]', 'text-[#00ffff]', 'text-[#ffff00]', 'text-[#ff8800]'];
-const glowColors = ['drop-shadow-[0_0_15px_#ff00ff]', 'drop-shadow-[0_0_15px_#00ffff]', 'drop-shadow-[0_0_15px_#ffff00]', 'drop-shadow-[0_0_15px_#ff8800]'];
+function useDeferredAppShell(showWelcome: boolean) {
+  const [isReady, setIsReady] = useState(false);
 
-const hash = (str: string) => {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-  return Math.abs(h);
-};
+  useEffect(() => {
+    if (!showWelcome) {
+      setIsReady(true);
+    }
+  }, [showWelcome]);
+
+  return isReady;
+}
 
 function UIOverlay() {
   return (
@@ -32,8 +34,8 @@ function BottomLyricsBand() {
   const { player, isPlaying } = usePlayer();
   const [phraseText, setPhraseText] = useState("");
   const [isVisible, setIsVisible] = useState(false);
-  const lastPhraseStartRef = useRef<number | null>(null);
-  const phraseTimerRef = useRef<number | null>(null);
+  const lastPhraseStartRef = React.useRef<number | null>(null);
+  const phraseTimerRef = React.useRef<number | null>(null);
 
   useEffect(() => {
     if (phraseTimerRef.current !== null) {
@@ -132,25 +134,28 @@ function BottomLyricsBand() {
   );
 }
 
-export default function Home() {
-  const [showWelcome, setShowWelcome] = useState(true);
+function AppShell() {
   return (
     <PlayerProvider>
-      <main className="w-screen h-screen bg-black overflow-hidden relative font-sans">
-        {/* The 3D World */}
-        <div className="absolute inset-0 z-0 bg-black pointer-events-auto">
-          <Scene />
-        </div>
-
-        {/* UI Overlay */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          <UIOverlay />
-        </div>
-
-        {/* Welcome Modal */}
-        <WelcomeModal show={showWelcome} onClose={() => setShowWelcome(false)} />
-      </main>
+      <div className="absolute inset-0 z-0 bg-black pointer-events-auto">
+        <Scene />
+      </div>
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        <UIOverlay />
+      </div>
     </PlayerProvider>
+  );
+}
+
+export default function Home() {
+  const [showWelcome, setShowWelcome] = useState(true);
+  const shouldMountAppShell = useDeferredAppShell(showWelcome);
+
+  return (
+    <main className="w-screen h-screen bg-black overflow-hidden relative font-sans">
+      {shouldMountAppShell ? <AppShell /> : null}
+      <WelcomeModal show={showWelcome} onClose={() => setShowWelcome(false)} />
+    </main>
   );
 }
 
