@@ -10,7 +10,7 @@ import type { Building } from "@/types/city";
 
 const GRID_RANGE = 5;
 const GRID_SPACING = 2.5; // 道路幅 ±1.75 + ビル半幅 0.5 + 余白 0.25 = 2.5 以上必要
-const MIN_HEIGHT = 1;
+const MIN_HEIGHT = 2;
 const MAX_HEIGHT = 4;
 
 function generateBuildings(): Building[] {
