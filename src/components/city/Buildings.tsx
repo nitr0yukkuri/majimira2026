@@ -141,7 +141,8 @@ export default function Buildings({
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
-    const targetBuilding = useRef(0); // 現在注目中のビルインデックス
+    const targetBuilding    = useRef(0); // 現在注目中のビルインデックス
+    const phraseSwapCountRef = useRef(0); // 2フレーズでビルを切り替えるためのカウンタ
     const lastPlaybackPosRef = useRef(0);
     const lastChorusState = useRef<boolean>(false);
     const songEndedRef = useRef(false);
@@ -205,6 +206,7 @@ export default function Buildings({
             lastWordId.current = null;
             lastBuildingPhraseId.current = null;
             lastChorusState.current = false;
+            phraseSwapCountRef.current = 0;
         }
         lastPlaybackPosRef.current = posRaw;
 
@@ -214,36 +216,47 @@ export default function Buildings({
             if (word && word.startTime !== lastWordId.current) {
                 lastWordId.current = word.startTime;
 
-                // ターゲットビルの未点灯窓からランダムに点灯
+                // ターゲットビルの未点灯窓を収集
                 const unlit: number[] = [];
                 for (let i = 0; i < windowData.buildingIndices.length; i++) {
                     if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
                 }
-                const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
-                for (let c = 0; c < count; c++) {
-                    const rnd = Math.floor(Math.random() * unlit.length);
-                    const idx = unlit.splice(rnd, 1)[0];
-                    const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
-                    litWindows.current.add(idx);
-                    litWindowColors.current.set(idx, new THREE.Color(colorHex));
-                    if (!currentWindowColors.current.has(idx)) {
-                        currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
+
+                if (unlit.length === 0) {
+                    // 全窓点灯済み → 即座に次のビルへ移行しカウントリセット
+                    let next = Math.floor(Math.random() * buildings.length);
+                    while (next === targetBuilding.current && buildings.length > 1) {
+                        next = Math.floor(Math.random() * buildings.length);
+                    }
+                    targetBuilding.current = next;
+                    phraseSwapCountRef.current = 0;
+                } else {
+                    const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
+                    for (let c = 0; c < count; c++) {
+                        const rnd = Math.floor(Math.random() * unlit.length);
+                        const idx = unlit.splice(rnd, 1)[0];
+                        const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
+                        litWindows.current.add(idx);
+                        litWindowColors.current.set(idx, new THREE.Color(colorHex));
+                        if (!currentWindowColors.current.has(idx)) {
+                            currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
+                        }
                     }
                 }
             }
 
-            // ── フレーズ検出: 遅いフレーズのみ新ビルへ切り替え＋軌道半径を決定 ──
-            // 速いフレーズ(isFast) → ターゲットを変えない = カメラはそのまま留まる
-            // 遅いフレーズ         → 新しいビルをランダムに選んでカメラを移動
+            // ── フレーズ検出: 2フレーズごとにビルを切り替え + 軌道半径を決定 ──
+            // 全窓点灯済みの場合は単語検出時に即座に移行済みなので、ここはカウント+半径更新のみ
             const phrase = player.video.findPhrase(pos);
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
 
                 const phraseDur = Number(phrase.duration ?? ORBIT_DUR_MAX);
-                const isFast = phraseDur < ORBIT_DUR_MIN;
 
-                // 遅いフレーズのみビルを切り替え（速い区間はカメラを動かさない）
-                if (!isFast) {
+                // 2フレーズに1回ビルを切り替え
+                phraseSwapCountRef.current++;
+                if (phraseSwapCountRef.current >= 2) {
+                    phraseSwapCountRef.current = 0;
                     targetBuilding.current = Math.floor(Math.random() * buildings.length);
                 }
 
