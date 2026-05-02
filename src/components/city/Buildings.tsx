@@ -141,7 +141,7 @@ export default function Buildings({
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
-    const targetBuilding = useRef(0);
+    const targetBuilding = useRef(0); // 現在注目中のビルインデックス
     const lastPlaybackPosRef = useRef(0);
     const lastChorusState = useRef<boolean>(false);
     const songEndedRef = useRef(false);
@@ -151,6 +151,15 @@ export default function Buildings({
     // カメラ用スクラッチVector3（毎フレームnewしないため）
     const _camLookAt = useRef(new THREE.Vector3());
     const _camOrbit = useRef(new THREE.Vector3());
+
+    // ── カメラ軌道半径: フレーズ長で決まる目標値と、毎フレームlerpする現在値 ──
+    // 短いフレーズ → 近い(3)、長いフレーズ → 遠い(10)
+    const ORBIT_RADIUS_MIN = 3;   // フレーズが短い(≤1500ms)ときの最小半径
+    const ORBIT_RADIUS_MAX = 10;  // フレーズが長い(≥6000ms)ときの最大半径
+    const ORBIT_DUR_MIN    = 1500; // ms: これ以下は最近距離
+    const ORBIT_DUR_MAX    = 6000; // ms: これ以上は最遠距離
+    const targetOrbitRadius  = useRef(6); // フレーズ検出時に更新する目標半径
+    const currentOrbitRadius = useRef(6); // 毎フレームlerpして実際に使う半径
 
     const resetWindows = () => {
         const mesh = windowsMeshRef.current;
@@ -205,11 +214,11 @@ export default function Buildings({
             if (word && word.startTime !== lastWordId.current) {
                 lastWordId.current = word.startTime;
 
+                // ターゲットビルの未点灯窓からランダムに点灯
                 const unlit: number[] = [];
                 for (let i = 0; i < windowData.buildingIndices.length; i++) {
                     if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
                 }
-
                 const count = Math.min(unlit.length, Math.floor(Math.random() * 4) + 3);
                 for (let c = 0; c < count; c++) {
                     const rnd = Math.floor(Math.random() * unlit.length);
@@ -217,18 +226,32 @@ export default function Buildings({
                     const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
                     litWindows.current.add(idx);
                     litWindowColors.current.set(idx, new THREE.Color(colorHex));
-                    // currentWindowColors に起点がなければ黒から開始
                     if (!currentWindowColors.current.has(idx)) {
                         currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
                     }
                 }
             }
 
-            // ── フレーズ検出: ターゲットビルを切り替え ──
+            // ── フレーズ検出: 遅いフレーズのみ新ビルへ切り替え＋軌道半径を決定 ──
+            // 速いフレーズ(isFast) → ターゲットを変えない = カメラはそのまま留まる
+            // 遅いフレーズ         → 新しいビルをランダムに選んでカメラを移動
             const phrase = player.video.findPhrase(pos);
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
-                targetBuilding.current = Math.floor(Math.random() * buildings.length);
+
+                const phraseDur = Number(phrase.duration ?? ORBIT_DUR_MAX);
+                const isFast = phraseDur < ORBIT_DUR_MIN;
+
+                // 遅いフレーズのみビルを切り替え（速い区間はカメラを動かさない）
+                if (!isFast) {
+                    targetBuilding.current = Math.floor(Math.random() * buildings.length);
+                }
+
+                // 軌道半径はフレーズ長に関わらず常に更新
+                const tNorm = Math.min(1, Math.max(0,
+                    (phraseDur - ORBIT_DUR_MIN) / (ORBIT_DUR_MAX - ORBIT_DUR_MIN)
+                ));
+                targetOrbitRadius.current = ORBIT_RADIUS_MIN + tNorm * (ORBIT_RADIUS_MAX - ORBIT_RADIUS_MIN);
             }
 
             // ── 曲終了: 全窓を徐々に白く ──
@@ -282,12 +305,17 @@ export default function Buildings({
         if (!testMode) {
             const target = buildings[targetBuilding.current] ?? buildings[0];
             if (target) {
+                // 軌道半径を目標値へ滑らかに補間（急な切り替わりでもカメラが暴れない）
+                currentOrbitRadius.current +=
+                    (targetOrbitRadius.current - currentOrbitRadius.current) * Math.min(1, 1.5 * delta);
+                const r = currentOrbitRadius.current;
+
                 // 毎フレーム new しないようスクラッチ ref を再利用
                 _camLookAt.current.set(target.x, target.h / 2, target.z);
                 cameraTarget.current.lerp(_camLookAt.current, 1.5 * delta);
                 state.camera.lookAt(cameraTarget.current);
                 const t = performance.now() / 2000;
-                _camOrbit.current.set(target.x + Math.sin(t) * 6, target.h / 2 + 1.5, target.z + Math.cos(t) * 6);
+                _camOrbit.current.set(target.x + Math.sin(t) * r, target.h / 2 + 1.5, target.z + Math.cos(t) * r);
                 state.camera.position.lerp(_camOrbit.current, 1.0 * delta);
             }
         }
