@@ -93,7 +93,7 @@ function Windows({ count, meshRef }: { count: number; meshRef: React.RefObject<T
     return (
         <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
             <planeGeometry args={[1, 1]} />
-            <meshBasicMaterial toneMapped={false} />
+            <meshBasicMaterial toneMapped={false} side={THREE.DoubleSide} />
         </instancedMesh>
     );
 }
@@ -136,13 +136,13 @@ export default function Buildings({
     // litWindowColors  : 各窓の「目標色」（フルブライト、コーラス係数適用前）
     // currentWindowColors: 各窓の「現在の表示色」。黒→目標色へ毎フレームlerpする
     const litWindows = useRef<Set<number>>(new Set());
-    const litWindowColors    = useRef<Map<number, THREE.Color>>(new Map());
+    const litWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const currentWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
+    const pendingBuildingSwitch = useRef<{ nextBuilding: number; switchAt: number } | null>(null);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
-    const targetBuilding    = useRef(0); // 現在注目中のビルインデックス
-    const phraseSwapCountRef = useRef(0); // 2フレーズでビルを切り替えるためのカウンタ
+    const targetBuilding = useRef(0); // 現在注目中のビルインデックス
     const lastPlaybackPosRef = useRef(0);
     const lastChorusState = useRef<boolean>(false);
     const songEndedRef = useRef(false);
@@ -157,9 +157,9 @@ export default function Buildings({
     // 短いフレーズ → 近い(3)、長いフレーズ → 遠い(10)
     const ORBIT_RADIUS_MIN = 3;   // フレーズが短い(≤1500ms)ときの最小半径
     const ORBIT_RADIUS_MAX = 10;  // フレーズが長い(≥6000ms)ときの最大半径
-    const ORBIT_DUR_MIN    = 1500; // ms: これ以下は最近距離
-    const ORBIT_DUR_MAX    = 6000; // ms: これ以上は最遠距離
-    const targetOrbitRadius  = useRef(6); // フレーズ検出時に更新する目標半径
+    const ORBIT_DUR_MIN = 1500; // ms: これ以下は最近距離
+    const ORBIT_DUR_MAX = 6000; // ms: これ以上は最遠距離
+    const targetOrbitRadius = useRef(6); // フレーズ検出時に更新する目標半径
     const currentOrbitRadius = useRef(6); // 毎フレームlerpして実際に使う半径
 
     const resetWindows = () => {
@@ -170,6 +170,7 @@ export default function Buildings({
         litWindows.current.clear();
         litWindowColors.current.clear();
         currentWindowColors.current.clear();
+        pendingBuildingSwitch.current = null;
 
         for (let i = 0; i < windowData.matrices.length; i++) {
             mesh.setColorAt(i, black);
@@ -206,59 +207,72 @@ export default function Buildings({
             lastWordId.current = null;
             lastBuildingPhraseId.current = null;
             lastChorusState.current = false;
-            phraseSwapCountRef.current = 0;
+            pendingBuildingSwitch.current = null;
         }
         lastPlaybackPosRef.current = posRaw;
 
         if (isPlaying && player?.video) {
-            // ── 単語検出: 目標色を登録するだけ。即時setColorAtはしない ──
-            const word = player.video.findWord(pos);
-            if (word && word.startTime !== lastWordId.current) {
-                lastWordId.current = word.startTime;
+            const phrase = player.video.findPhrase(pos);
+            const pendingSwitch = pendingBuildingSwitch.current;
+            const shouldAdvanceBuilding = !!pendingSwitch && posRaw >= pendingSwitch.switchAt;
 
-                // ターゲットビルの未点灯窓を収集
-                const unlit: number[] = [];
-                for (let i = 0; i < windowData.buildingIndices.length; i++) {
-                    if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
-                }
+            if (shouldAdvanceBuilding && pendingSwitch) {
+                targetBuilding.current = pendingSwitch.nextBuilding;
+                pendingBuildingSwitch.current = null;
+                lastWordId.current = null;
+            }
 
-                if (unlit.length === 0) {
-                    // 全窓点灯済み → 即座に次のビルへ移行しカウントリセット
-                    let next = Math.floor(Math.random() * buildings.length);
-                    while (next === targetBuilding.current && buildings.length > 1) {
-                        next = Math.floor(Math.random() * buildings.length);
+            if (!shouldAdvanceBuilding) {
+                // ── 単語検出: 目標色を登録するだけ。即時setColorAtはしない ──
+                const word = player.video.findWord(pos);
+                if (word && word.startTime !== lastWordId.current) {
+                    lastWordId.current = word.startTime;
+
+                    // ターゲットビルの未点灯窓を収集
+                    const unlit: number[] = [];
+                    for (let i = 0; i < windowData.buildingIndices.length; i++) {
+                        if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) unlit.push(i);
                     }
-                    targetBuilding.current = next;
-                    phraseSwapCountRef.current = 0;
-                } else {
-                    const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
-                    for (let c = 0; c < count; c++) {
-                        const rnd = Math.floor(Math.random() * unlit.length);
-                        const idx = unlit.splice(rnd, 1)[0];
-                        const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
-                        litWindows.current.add(idx);
-                        litWindowColors.current.set(idx, new THREE.Color(colorHex));
-                        if (!currentWindowColors.current.has(idx)) {
-                            currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
+
+                    if (unlit.length === 0) {
+                        // 全窓点灯済み → フレーズ終端まで保留してから次のビルへ移行する
+                        if (!pendingBuildingSwitch.current && phrase) {
+                            let next = Math.floor(Math.random() * buildings.length);
+                            while (next === targetBuilding.current && buildings.length > 1) {
+                                next = Math.floor(Math.random() * buildings.length);
+                            }
+
+                            const phraseDuration = Number(phrase.duration ?? 0);
+                            const switchAt = phraseDuration > 0
+                                ? Number(phrase.startTime + phraseDuration)
+                                : posRaw;
+
+                            pendingBuildingSwitch.current = {
+                                nextBuilding: next,
+                                switchAt,
+                            };
+                        }
+                    } else {
+                        const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
+                        for (let c = 0; c < count; c++) {
+                            const rnd = Math.floor(Math.random() * unlit.length);
+                            const idx = unlit.splice(rnd, 1)[0];
+                            const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
+                            litWindows.current.add(idx);
+                            litWindowColors.current.set(idx, new THREE.Color(colorHex));
+                            if (!currentWindowColors.current.has(idx)) {
+                                currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
+                            }
                         }
                     }
                 }
             }
 
-            // ── フレーズ検出: 2フレーズごとにビルを切り替え + 軌道半径を決定 ──
-            // 全窓点灯済みの場合は単語検出時に即座に移行済みなので、ここはカウント+半径更新のみ
-            const phrase = player.video.findPhrase(pos);
+            // ── フレーズ検出: 軌道半径の更新のみ（ビル切り替えはフレーズ終端で遅延実行） ──
             if (phrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
 
                 const phraseDur = Number(phrase.duration ?? ORBIT_DUR_MAX);
-
-                // 2フレーズに1回ビルを切り替え
-                phraseSwapCountRef.current++;
-                if (phraseSwapCountRef.current >= 2) {
-                    phraseSwapCountRef.current = 0;
-                    targetBuilding.current = Math.floor(Math.random() * buildings.length);
-                }
 
                 // 軌道半径はフレーズ長に関わらず常に更新
                 const tNorm = Math.min(1, Math.max(0,
@@ -282,7 +296,7 @@ export default function Buildings({
         if (mesh && litWindows.current.size > 0) {
             // コーラス・ビートによるブライトネス係数を計算
             const chorus = isPlaying && player?.video ? !!player.findChorus(pos) : false;
-            const beat   = isPlaying && player?.video ? player.findBeat(pos) : null;
+            const beat = isPlaying && player?.video ? player.findBeat(pos) : null;
             const beatPulse = beat
                 ? 1 - Math.min(1, Math.max(0, (pos - beat.startTime) / Math.max(beat.duration, 0.001)))
                 : 0;
@@ -297,7 +311,7 @@ export default function Buildings({
 
             let needsUpdate = false;
             for (const idx of litWindows.current) {
-                const target  = litWindowColors.current.get(idx);
+                const target = litWindowColors.current.get(idx);
                 const current = currentWindowColors.current.get(idx);
                 if (!target || !current) continue;
 
