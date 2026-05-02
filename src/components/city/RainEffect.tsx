@@ -86,7 +86,6 @@ export default function RainEffect() {
     const { player, isPlaying } = usePlayer();
     const rainMeshRef = useRef<THREE.InstancedMesh>(null);
     const rainMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
-    const mistMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
     const drops = useMemo(() => createRainDrops(RAIN_COUNT), []);
     const dummy = useMemo(() => new THREE.Object3D(), []);
 
@@ -122,28 +121,11 @@ export default function RainEffect() {
         if (rainMaterialRef.current) {
             rainMaterialRef.current.opacity = active ? (chorus ? 0.5 : 0.38) : 0.16;
         }
-        if (mistMaterialRef.current) {
-            mistMaterialRef.current.opacity = active ? (chorus ? 0.07 : 0.04) : 0.02;
-        }
     });
 
     return (
         <>
-            <fog attach="fog" args={['#020814', 24, 92]} />
-
             <WetRoadLayer />
-
-            <mesh position={[0, 4.2, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={0.1}>
-                <planeGeometry args={[120, 120]} />
-                <meshBasicMaterial
-                    ref={mistMaterialRef}
-                    color="#00fff0"
-                    transparent
-                    opacity={0.02}
-                    depthWrite={false}
-                    blending={THREE.AdditiveBlending}
-                />
-            </mesh>
 
             <instancedMesh ref={rainMeshRef} args={[undefined, undefined, RAIN_COUNT]} renderOrder={2} frustumCulled={false}>
                 <cylinderGeometry args={[0.007, 0.007, 1, 4]} />
