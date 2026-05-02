@@ -46,6 +46,20 @@ export function useBuildingsAnimation({
     const currentOrbitRadius = useRef(6);
     const windowsByBuilding = windowData.windowsByBuilding;
 
+    // 点灯済みの窓は、内部状態だけでなくメッシュ色も即座に同期する。
+    // ここを分けると、点灯直後に黒からの補間が入って「一瞬光っていない」見え方になる。
+    const commitLitWindow = (windowIndex: number, color: THREE.Color) => {
+        litWindows.current.add(windowIndex);
+        litWindowColors.current.set(windowIndex, color.clone());
+        currentWindowColors.current.set(windowIndex, color.clone());
+
+        const mesh = windowsMeshRef.current;
+        if (!mesh) return;
+
+        mesh.setColorAt(windowIndex, color);
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    };
+
     const resetWindows = () => {
         const mesh = windowsMeshRef.current;
         if (!mesh) return;
@@ -69,11 +83,7 @@ export function useBuildingsAnimation({
         litWindowColors.current.clear();
 
         for (let i = 0; i < windowData.matrices.length; i++) {
-            litWindows.current.add(i);
-            litWindowColors.current.set(i, white.clone());
-            if (!currentWindowColors.current.has(i)) {
-                currentWindowColors.current.set(i, new THREE.Color(0, 0, 0));
-            }
+            commitLitWindow(i, white);
         }
     };
 
@@ -123,11 +133,7 @@ export function useBuildingsAnimation({
                 const idx = candidates.splice(rnd, 1)[0];
                 const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
                 const idleColor = new THREE.Color(colorHex);
-                litWindows.current.add(idx);
-                litWindowColors.current.set(idx, idleColor);
-                if (!currentWindowColors.current.has(idx)) {
-                    currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
-                }
+                commitLitWindow(idx, idleColor);
             }
         };
 
@@ -152,67 +158,77 @@ export function useBuildingsAnimation({
             }
         };
 
-        if (isPlaying && player?.video) {
-            const phrase = player.video.findPhrase(pos);
-            const phraseDuration = Number(phrase?.duration ?? 0);
-            const hasActivePhrase = !!phrase && phraseDuration > 0 && pos >= phrase.startTime && pos <= phrase.startTime + phraseDuration;
-            if (hasActivePhrase) {
-                const word = player.video.findWord(pos);
-                if (word && word.startTime !== lastWordId.current) {
-                    lastWordId.current = word.startTime;
+        if (player?.video) {
+            let hasActivePhrase = false;
+            let phrase = null;
 
-                    const unlit = getUnlitWindowsForBuilding(targetBuilding.current);
+            if (isPlaying) {
+                phrase = player.video.findPhrase(pos);
+                const phraseDuration = Number(phrase?.duration ?? 0);
+                hasActivePhrase = !!phrase && phraseDuration > 0 && pos >= phrase.startTime && pos <= phrase.startTime + phraseDuration;
 
-                    if (unlit.length === 0) {
-                        if (!pendingBuildingSwitch.current && phrase) {
-                            let next = Math.floor(Math.random() * buildings.length);
-                            while (next === targetBuilding.current && buildings.length > 1) {
-                                next = Math.floor(Math.random() * buildings.length);
+                if (hasActivePhrase) {
+                    const word = player.video.findWord(pos);
+                    if (word && word.startTime !== lastWordId.current) {
+                        lastWordId.current = word.startTime;
+
+                        const unlit = getUnlitWindowsForBuilding(targetBuilding.current);
+
+                        if (unlit.length === 0) {
+                            if (!pendingBuildingSwitch.current && phrase) {
+                                let next = Math.floor(Math.random() * buildings.length);
+                                while (next === targetBuilding.current && buildings.length > 1) {
+                                    next = Math.floor(Math.random() * buildings.length);
+                                }
+
+                                const phraseDuration = Number(phrase.duration ?? 0);
+                                const switchAt = phraseDuration > 0
+                                    ? Number(phrase.startTime + phraseDuration)
+                                    : posRaw;
+
+                                pendingBuildingSwitch.current = {
+                                    nextBuilding: next,
+                                    switchAt,
+                                };
                             }
-
-                            const switchAt = phraseDuration > 0
-                                ? Number(phrase.startTime + phraseDuration)
-                                : posRaw;
-
-                            pendingBuildingSwitch.current = {
-                                nextBuilding: next,
-                                switchAt,
-                            };
-                        }
-                    } else {
-                        const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
-                        for (let c = 0; c < count; c++) {
-                            const rnd = Math.floor(Math.random() * unlit.length);
-                            const idx = unlit.splice(rnd, 1)[0];
-                            const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
-                            litWindows.current.add(idx);
-                            litWindowColors.current.set(idx, new THREE.Color(colorHex));
-                            if (!currentWindowColors.current.has(idx)) {
-                                currentWindowColors.current.set(idx, new THREE.Color(0, 0, 0));
+                        } else {
+                            const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
+                            for (let c = 0; c < count; c++) {
+                                const rnd = Math.floor(Math.random() * unlit.length);
+                                const idx = unlit.splice(rnd, 1)[0];
+                                const colorHex = NEON_HEX[Math.floor(Math.random() * NEON_HEX.length)];
+                                commitLitWindow(idx, new THREE.Color(colorHex));
                             }
                         }
                     }
                 }
+
+                const pendingSwitch = pendingBuildingSwitch.current;
+                if (pendingSwitch && posRaw >= pendingSwitch.switchAt) {
+                    targetBuilding.current = pendingSwitch.nextBuilding;
+                    pendingBuildingSwitch.current = null;
+                    lastWordId.current = null;
+                }
+
+                if (hasActivePhrase && phrase && phrase.startTime !== lastBuildingPhraseId.current) {
+                    lastBuildingPhraseId.current = phrase.startTime;
+
+                    const phraseDur = Number(phrase.duration ?? ORBIT_DUR_MAX);
+
+                    const tNorm = Math.min(1, Math.max(0,
+                        (phraseDur - ORBIT_DUR_MIN) / (ORBIT_DUR_MAX - ORBIT_DUR_MIN)
+                    ));
+                    targetOrbitRadius.current = ORBIT_RADIUS_MIN + tNorm * (ORBIT_RADIUS_MAX - ORBIT_RADIUS_MIN);
+                }
+
+                const duration = Number(player.video.duration ?? 0);
+                if (duration > 0 && posRaw >= duration - 120 && !songEndedRef.current) {
+                    lightUpAllWindows();
+                    songEndedRef.current = true;
+                }
             }
 
-            const pendingSwitch = pendingBuildingSwitch.current;
-            if (pendingSwitch && posRaw >= pendingSwitch.switchAt) {
-                targetBuilding.current = pendingSwitch.nextBuilding;
-                pendingBuildingSwitch.current = null;
-                lastWordId.current = null;
-            }
-
-            if (hasActivePhrase && phrase.startTime !== lastBuildingPhraseId.current) {
-                lastBuildingPhraseId.current = phrase.startTime;
-
-                const phraseDur = Number(phrase.duration ?? ORBIT_DUR_MAX);
-
-                const tNorm = Math.min(1, Math.max(0,
-                    (phraseDur - ORBIT_DUR_MIN) / (ORBIT_DUR_MAX - ORBIT_DUR_MIN)
-                ));
-                targetOrbitRadius.current = ORBIT_RADIUS_MIN + tNorm * (ORBIT_RADIUS_MAX - ORBIT_RADIUS_MIN);
-            }
-
+            // Idle window lighting: activate when video is loaded, regardless of isPlaying
             if (!hasActivePhrase) {
                 const targetCandidates = getUnlitWindowsForBuilding(targetBuilding.current);
 
@@ -228,12 +244,6 @@ export function useBuildingsAnimation({
                 } else {
                     idleWindowAccumulator.current = 0;
                 }
-            }
-
-            const duration = Number(player.video.duration ?? 0);
-            if (duration > 0 && posRaw >= duration - 120 && !songEndedRef.current) {
-                lightUpAllWindows();
-                songEndedRef.current = true;
             }
         }
 

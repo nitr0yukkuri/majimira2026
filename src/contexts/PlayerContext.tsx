@@ -21,11 +21,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const [isReady, setIsReady] = useState(false);
     const playerRef = useRef<Player | null>(null);
     const mediaRef = useRef<HTMLAudioElement | null>(null);
+    const initPatched = useRef(false);
+    const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Patch HTMLMediaElement on first mount only
     useEffect(() => {
         if (typeof window === "undefined") return;
+        if (initPatched.current) return;
 
-        // Prevent Next.js dev overlay from aggressively showing harmless AbortError from media.play()
         if (!(HTMLMediaElement.prototype as any)._isPatchedForAbort) {
             const originalPlay = HTMLMediaElement.prototype.play;
             HTMLMediaElement.prototype.play = function () {
@@ -35,51 +38,75 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                         if (error.name !== "AbortError" && error.name !== "NotAllowedError") throw error;
                     });
                 }
-                return promise; // Return the original promise so TextAlive's internal state doesn't break!
+                return promise;
             };
             (HTMLMediaElement.prototype as any)._isPatchedForAbort = true;
         }
+        initPatched.current = true;
+    }, []);
 
-        if (playerRef.current) return;
+    // Initialize Player when mediaRef is attached to DOM
+    const handleMediaRef = (element: HTMLAudioElement | null) => {
+        mediaRef.current = element;
 
-        const mediaEl = mediaRef.current;
-        if (!mediaEl) return;
+        // If Player already initialized or element removed, skip
+        if (!element || playerRef.current) return;
 
-        const newPlayer = new Player({
-            app: {
-                appAuthor: "NeoCity Awaken",
-                appName: "Prototype",
-                token: "test", // 実際の運用時は正規のデベロッパートークンに置き換えてください
-            },
-            mediaElement: mediaEl,
-        });
+        // Ensure element is actually in the DOM
+        if (!document.body.contains(element)) return;
 
-        newPlayer.addListener({
-            onAppReady: (app: IPlayerApp) => {
-                if (!app.managed) {
-                    newPlayer.createFromSongUrl("https://piapro.jp/t/E2i3/20251215092113");
+        // Delay initialization slightly to ensure DOM is fully ready
+        if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
+
+        initTimeoutRef.current = setTimeout(() => {
+            if (!playerRef.current && mediaRef.current) {
+                try {
+                    const newPlayer = new Player({
+                        app: {
+                            appAuthor: "NeoCity Awaken",
+                            appName: "Prototype",
+                            token: "test",
+                        },
+                        mediaElement: mediaRef.current,
+                    });
+
+                    newPlayer.addListener({
+                        onAppReady: (app: IPlayerApp) => {
+                            if (!app.managed) {
+                                try {
+                                    newPlayer.createFromSongUrl("https://piapro.jp/t/E2i3/20251215092113");
+                                } catch (err) {
+                                    console.error("Error creating song from URL:", err);
+                                }
+                            }
+                        },
+                        onVideoReady: () => {
+                            console.log("Video is ready!");
+                        },
+                        onTimerReady: () => {
+                            console.log("Timer is ready!");
+                            setIsReady(true);
+                        },
+                        onPlay: () => setIsPlaying(true),
+                        onPause: () => setIsPlaying(false),
+                        onStop: () => setIsPlaying(false),
+                    });
+
+                    playerRef.current = newPlayer;
+                    setPlayer(newPlayer);
+                } catch (error) {
+                    console.error("Failed to create Player instance:", error);
                 }
-            },
-            onVideoReady: () => {
-                console.log("Video is ready!");
-            },
-            onTimerReady: () => {
-                console.log("Timer is ready!");
-                setIsReady(true);
-            },
-            onPlay: () => setIsPlaying(true),
-            onPause: () => setIsPlaying(false),
-            onStop: () => setIsPlaying(false),
-        });
+            }
+        }, 100);
+    };
 
-        playerRef.current = newPlayer;
-        setPlayer(newPlayer);
-
+    useEffect(() => {
         return () => {
-            newPlayer.dispose();
-            playerRef.current = null;
-            if (mediaEl) {
-                mediaEl.innerHTML = "";
+            if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
+            if (playerRef.current) {
+                playerRef.current.dispose();
+                playerRef.current = null;
             }
         };
     }, []);
@@ -97,7 +124,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     return (
         <PlayerContext.Provider value={{ player, isPlaying, isReady, play, pause, stop, seek }}>
             {children}
-            <audio id="media" ref={mediaRef} className="hidden" />
+            <audio
+                id="media"
+                ref={handleMediaRef}
+                className="hidden"
+                crossOrigin="anonymous"
+                preload="auto"
+            />
         </PlayerContext.Provider>
     );
 }
