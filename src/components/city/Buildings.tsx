@@ -148,6 +148,9 @@ export default function Buildings({
 
     // useFrame内でVector3/Colorをnewしないよう再利用バッファ
     const _scratch = useRef(new THREE.Color());
+    // カメラ用スクラッチVector3（毎フレームnewしないため）
+    const _camLookAt = useRef(new THREE.Vector3());
+    const _camOrbit = useRef(new THREE.Vector3());
 
     const resetWindows = () => {
         const mesh = windowsMeshRef.current;
@@ -237,6 +240,8 @@ export default function Buildings({
         }
 
         // ── 毎フレーム: currentColor → targetColor へ lerp し setColorAt ──
+        // currentWindowColors は純粋に「ネオン色への収束」にのみ使う。
+        // chorusFactor は setColorAt 時に一時適用するだけで current の値を汚染しない。
         const mesh = windowsMeshRef.current;
         if (mesh && litWindows.current.size > 0) {
             // コーラス・ビートによるブライトネス係数を計算
@@ -260,11 +265,13 @@ export default function Buildings({
                 const current = currentWindowColors.current.get(idx);
                 if (!target || !current) continue;
 
-                // target × chorusFactor を今フレームの目標にする
-                _scratch.current.copy(target).multiplyScalar(chorusFactor);
-                current.lerp(_scratch.current, alpha);
+                // ① current を純粋な target に向かって lerp（chorusFactor は混ぜない）
+                current.lerp(target, alpha);
 
-                mesh.setColorAt(idx, current);
+                // ② 表示時だけ chorusFactor を掛けたスクラッチ色を GPU に送る
+                //    current 自体は変えないので、次フレームの lerp 起点が汚染されない
+                _scratch.current.copy(current).multiplyScalar(chorusFactor);
+                mesh.setColorAt(idx, _scratch.current);
                 needsUpdate = true;
             }
             if (needsUpdate && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -275,12 +282,13 @@ export default function Buildings({
         if (!testMode) {
             const target = buildings[targetBuilding.current] ?? buildings[0];
             if (target) {
-                const lookAt = new THREE.Vector3(target.x, target.h / 2, target.z);
-                cameraTarget.current.lerp(lookAt, 1.5 * delta);
+                // 毎フレーム new しないようスクラッチ ref を再利用
+                _camLookAt.current.set(target.x, target.h / 2, target.z);
+                cameraTarget.current.lerp(_camLookAt.current, 1.5 * delta);
                 state.camera.lookAt(cameraTarget.current);
                 const t = performance.now() / 2000;
-                const orbit = new THREE.Vector3(target.x + Math.sin(t) * 6, target.h / 2 + 1.5, target.z + Math.cos(t) * 6);
-                state.camera.position.lerp(orbit, 1.0 * delta);
+                _camOrbit.current.set(target.x + Math.sin(t) * 6, target.h / 2 + 1.5, target.z + Math.cos(t) * 6);
+                state.camera.position.lerp(_camOrbit.current, 1.0 * delta);
             }
         }
     });
