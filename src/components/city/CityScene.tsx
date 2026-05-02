@@ -5,7 +5,7 @@ import { usePlayer } from "@/contexts/PlayerContext";
 import IntersectionAndRoads from "./IntersectionAndRoads";
 import LightTrails from "./LightTrails";
 import TrafficLights from "./TrafficLights";
-import Buildings from "./Buildings";
+import Buildings from "@/components/city/Buildings";
 import RainEffect from "./RainEffect";
 
 /**
