@@ -140,7 +140,6 @@ export default function Buildings({
     const currentWindowColors = useRef<Map<number, THREE.Color>>(new Map());
     const lastWordId = useRef<number | null>(null);
     const lastBuildingPhraseId = useRef<number | null>(null);
-    const pendingBuildingSwitch = useRef<{ nextBuilding: number; switchAt: number } | null>(null);
     const idleWindowAccumulator = useRef(0);
     const cameraTarget = useRef(new THREE.Vector3(0, 2, 0));
     const targetBuilding = useRef(0); // 現在注目中のビルインデックス
@@ -171,7 +170,6 @@ export default function Buildings({
         litWindows.current.clear();
         litWindowColors.current.clear();
         currentWindowColors.current.clear();
-        pendingBuildingSwitch.current = null;
         idleWindowAccumulator.current = 0;
 
         for (let i = 0; i < windowData.matrices.length; i++) {
@@ -209,7 +207,6 @@ export default function Buildings({
             lastWordId.current = null;
             lastBuildingPhraseId.current = null;
             lastChorusState.current = false;
-            pendingBuildingSwitch.current = null;
             idleWindowAccumulator.current = 0;
         }
         lastPlaybackPosRef.current = posRaw;
@@ -238,32 +235,41 @@ export default function Buildings({
             }
         };
 
-        const advanceToRandomBuilding = () => {
-            let next = Math.floor(Math.random() * buildings.length);
-            while (next === targetBuilding.current && buildings.length > 1) {
-                next = Math.floor(Math.random() * buildings.length);
+        const hasUnlitWindowsForBuilding = (buildingIndex: number) => {
+            for (let i = 0; i < windowData.buildingIndices.length; i++) {
+                if (windowData.buildingIndices[i] === buildingIndex && !litWindows.current.has(i)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        const advanceToNextCameraBuilding = () => {
+            for (let bIdx = 0; bIdx < buildings.length; bIdx++) {
+                if (bIdx === targetBuilding.current) continue;
+                if (!hasUnlitWindowsForBuilding(bIdx)) continue;
+
+                targetBuilding.current = bIdx;
+                lastWordId.current = null;
+                idleWindowAccumulator.current = 0;
+                return;
             }
 
-            targetBuilding.current = next;
-            lastWordId.current = null;
-            idleWindowAccumulator.current = 0;
+            for (let bIdx = 0; bIdx < buildings.length; bIdx++) {
+                if (bIdx === targetBuilding.current) continue;
+
+                targetBuilding.current = bIdx;
+                lastWordId.current = null;
+                idleWindowAccumulator.current = 0;
+                return;
+            }
         };
 
         if (isPlaying && player?.video) {
             const phrase = player.video.findPhrase(pos);
             const phraseDuration = Number(phrase?.duration ?? 0);
             const hasActivePhrase = !!phrase && phraseDuration > 0 && pos >= phrase.startTime && pos <= phrase.startTime + phraseDuration;
-            const isIntroPhase = !hasActivePhrase && lastBuildingPhraseId.current === null;
-            const pendingSwitch = pendingBuildingSwitch.current;
-            const shouldAdvanceBuilding = !!pendingSwitch && posRaw >= pendingSwitch.switchAt;
-
-            if (shouldAdvanceBuilding && pendingSwitch) {
-                targetBuilding.current = pendingSwitch.nextBuilding;
-                pendingBuildingSwitch.current = null;
-                lastWordId.current = null;
-            }
-
-            if (hasActivePhrase && !shouldAdvanceBuilding) {
+            if (hasActivePhrase) {
                 // ── 単語検出: 目標色を登録するだけ。即時setColorAtはしない ──
                 const word = player.video.findWord(pos);
                 if (word && word.startTime !== lastWordId.current) {
@@ -276,23 +282,8 @@ export default function Buildings({
                     }
 
                     if (unlit.length === 0) {
-                        // 全窓点灯済み → フレーズ終端まで保留してから次のビルへ移行する
-                        if (!pendingBuildingSwitch.current && phrase) {
-                            let next = Math.floor(Math.random() * buildings.length);
-                            while (next === targetBuilding.current && buildings.length > 1) {
-                                next = Math.floor(Math.random() * buildings.length);
-                            }
-
-                            const phraseDuration = Number(phrase.duration ?? 0);
-                            const switchAt = phraseDuration > 0
-                                ? Number(phrase.startTime + phraseDuration)
-                                : posRaw;
-
-                            pendingBuildingSwitch.current = {
-                                nextBuilding: next,
-                                switchAt,
-                            };
-                        }
+                        // 全窓点灯済み → すぐ完全未点灯のビルへ切り替える
+                        advanceToNextCameraBuilding();
                     } else {
                         const count = Math.min(unlit.length, Math.floor(Math.random() * 7) + 8);
                         for (let c = 0; c < count; c++) {
@@ -309,7 +300,7 @@ export default function Buildings({
                 }
             }
 
-            // ── フレーズ検出: 軌道半径の更新のみ（ビル切り替えはフレーズ終端で遅延実行） ──
+            // ── フレーズ検出: 軌道半径の更新のみ ──
             if (hasActivePhrase && phrase.startTime !== lastBuildingPhraseId.current) {
                 lastBuildingPhraseId.current = phrase.startTime;
 
@@ -322,7 +313,7 @@ export default function Buildings({
                 targetOrbitRadius.current = ORBIT_RADIUS_MIN + tNorm * (ORBIT_RADIUS_MAX - ORBIT_RADIUS_MIN);
             }
 
-            if (!hasActivePhrase && !shouldAdvanceBuilding) {
+            if (!hasActivePhrase) {
                 const targetCandidates: number[] = [];
                 for (let i = 0; i < windowData.buildingIndices.length; i++) {
                     if (windowData.buildingIndices[i] === targetBuilding.current && !litWindows.current.has(i)) {
@@ -336,19 +327,12 @@ export default function Buildings({
                         idleWindowAccumulator.current -= 850;
                         lightIdleWindowsForTargetBuilding(1 + (Math.random() < 0.35 ? 1 : 0));
                     }
-                    const stillHasCandidates = windowData.buildingIndices.some((buildingIndex, index) => {
-                        return buildingIndex === targetBuilding.current && !litWindows.current.has(index);
-                    });
-                    if (isIntroPhase && !stillHasCandidates) {
-                        advanceToRandomBuilding();
+                    if (!hasUnlitWindowsForBuilding(targetBuilding.current)) {
+                        advanceToNextCameraBuilding();
                     }
-                } else if (isIntroPhase) {
-                    advanceToRandomBuilding();
                 } else {
                     idleWindowAccumulator.current = 0;
                 }
-            } else {
-                idleWindowAccumulator.current = 0;
             }
 
             // ── 曲終了: 全窓を徐々に白く ──
@@ -375,8 +359,8 @@ export default function Buildings({
                 ? 1.0 + (0.65 + Math.sin((1 - beatPulse) * Math.PI * 4) * 0.35) * 1.0
                 : 1.0;
 
-            // lerpの速度: 値が大きいほど速く点灯（3.0 ≈ 約0.5秒で95%）
-            const FADE_SPEED = 3.0;
+            // lerpの速度: サビ中は現状維持、通常時だけ少し遅くする
+            const FADE_SPEED = chorus ? 3.0 : 2.3;
             const alpha = Math.min(1, FADE_SPEED * delta);
 
             let needsUpdate = false;
